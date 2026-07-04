@@ -3,7 +3,7 @@
 // ============================================================
 
 // Server URL — update for production
-export const SERVER_URL = 'http://10.34.85.198:3001';
+export const SERVER_URL = 'https://chain-reaction-backend-srf0.onrender.com';
 
 // Board dimensions - 6x13 portrait grid matching the user's reference image
 export const BOARD_COLS = 6;

@@ -4,7 +4,7 @@
     "slug": "chain-reaction",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/4c02d468-42ff-485a-b062-f9c72f2cf711.png",
     "scheme": "chainreaction",
     "userInterfaceStyle": "dark",
     "splash": {
@@ -18,7 +18,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/4c02d468-42ff-485a-b062-f9c72f2cf711.png",
         "backgroundColor": "#0a0a0f"
       },
       "package": "com.chainreaction.app",
@@ -42,6 +42,17 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "322830cd-9b71-4490-b644-157b2cd197d3"
+      }
+    },
+    "owner": "karnkumarbnk",
+    "react-native-google-mobile-ads": {
+      "android_app_id": "ca-app-pub-9490969329975402~2334828334",
+      "ios_app_id": "ca-app-pub-9490969329975402~2334828334"
     }
   }
 }

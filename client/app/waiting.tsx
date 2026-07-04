@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   Animated,
   Alert,
+  Share,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
@@ -104,15 +105,15 @@ export default function WaitingScreen() {
 
   const handleShare = async () => {
     if (!roomCode) return;
-    const canShare = await Sharing.isAvailableAsync();
-    if (canShare) {
-      await Sharing.shareAsync('', {
-        dialogTitle: `Join my Chain Reaction room: ${roomCode}`,
-        mimeType: 'text/plain',
+    try {
+      await Share.share({
+        message: `Join my Arena Chain Reaction room! Room Code: ${roomCode}`,
       });
-    } else {
+    } catch (error) {
+      console.error('Error sharing room code:', error);
+      // Fallback
       await Clipboard.setStringAsync(roomCode);
-      Alert.alert('Copied!', 'Room code copied to clipboard');
+      Alert.alert('Copied!', 'Failed to open share sheet. Room code copied to clipboard');
     }
   };
 

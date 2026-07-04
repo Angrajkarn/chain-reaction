@@ -16,18 +16,29 @@ import { SPACING, RADIUS } from '../constants/theme';
 import Button from '../components/Button';
 import ParticleBackground from '../components/ParticleBackground';
 import SettingsModal from '../components/SettingsModal';
+import AboutModal from '../components/AboutModal';
+import AdBanner from '../components/AdBanner';
+import { TouchableOpacity } from 'react-native';
 
 const { width: W } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const router = useRouter();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   return (
     <View style={styles.container}>
       <ParticleBackground />
 
       <SafeAreaView style={styles.safe}>
+        {/* Top bar with three-dots button */}
+        <View style={styles.topBar}>
+          <TouchableOpacity onPress={() => setAboutOpen(true)} style={styles.dotsButton}>
+            <Text style={styles.dotsText}>⋮</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Header branding */}
         <View style={styles.branding}>
           <Text style={styles.brandTitle}>⚛️</Text>
@@ -70,11 +81,15 @@ export default function HomeScreen() {
           />
         </View>
 
+        {/* AdMob Banner */}
+        <AdBanner />
+
         {/* Footer */}
         <Text style={styles.footer}>Made for Booblie ❤️</Text>
       </SafeAreaView>
 
       <SettingsModal visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <AboutModal visible={aboutOpen} onClose={() => setAboutOpen(false)} />
     </View>
   );
 }
@@ -88,13 +103,35 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: SPACING.xxl,
+    paddingVertical: SPACING.lg,
     paddingHorizontal: SPACING.xl,
+  },
+  topBar: {
+    position: 'absolute',
+    top: 55,
+    right: 12,
+    zIndex: 10,
+  },
+  dotsButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: COLORS.glass,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dotsText: {
+    color: COLORS.textSecondary,
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginTop: -4,
   },
   branding: {
     alignItems: 'center',
     gap: SPACING.xs,
-    flex: 1,
+    flex: 1.2,
     justifyContent: 'center',
   },
   brandTitle: {

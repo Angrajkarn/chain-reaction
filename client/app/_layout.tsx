@@ -7,10 +7,16 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Audio } from 'expo-av';
-import { AppState } from 'react-native';
+import { AppState, LogBox } from 'react-native';
 import { useSocket } from '../hooks/useSocket';
 import { useSettingsStore } from '../store/settingsStore';
 import { disconnectSocket } from '../services/socket';
+
+// Suppress deprecation warnings on console logs
+LogBox.ignoreLogs([
+  'Expo AV has been deprecated',
+  'SafeAreaView has been deprecated',
+]);
 
 function SocketInitializer() {
   // Initialize socket event listeners at the root level
