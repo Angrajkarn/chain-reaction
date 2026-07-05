@@ -33,7 +33,7 @@ export function useGame() {
 
       // Reject if game not started
       if (!gameStarted) {
-        setToastMessage("Can't place");
+        setToastMessage('Waiting for opponent...');
         return;
       }
 
@@ -44,13 +44,13 @@ export function useGame() {
 
       // Reject if not my turn
       if (!isMyTurn || !myPlayerNumber) {
-        setToastMessage("Can't place");
+        setToastMessage("Not your turn yet! ⏳");
         return;
       }
 
       // Reject if cell is invalid (e.g. owned by opponent)
       if (!isValidMove(board, row, col, myPlayerNumber)) {
-        setToastMessage("Can't place");
+        setToastMessage("That cell belongs to your opponent! ❌");
         return;
       }
 

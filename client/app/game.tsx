@@ -54,7 +54,12 @@ export default function GameScreen() {
   // Handle "player-left" socket event
   useEffect(() => {
     const socket = getSocket();
-    const onPlayerLeft = ({ playerName }: { playerName: string }) => {
+    const onPlayerLeft = ({ playerName, temporary }: { playerName: string; temporary?: boolean }) => {
+      if (temporary) {
+        // Brief drop — don't show modal, just show a toast
+        setToastMessage(`${playerName} briefly disconnected...`);
+        return;
+      }
       setOpponentLeftName(playerName);
       setOpponentLeftVisible(true);
     };
@@ -62,12 +67,9 @@ export default function GameScreen() {
     return () => { socket.off('player-left', onPlayerLeft); };
   }, []);
 
-  // Disconnect socket on unmount (leaving screen)
-  useEffect(() => {
-    return () => {
-      disconnectSocket();
-    };
-  }, []);
+  // Disconnect socket on unmount ONLY if game is over or user explicitly exits
+  // Do NOT disconnect on normal navigation (e.g. accidental back press)
+  // Intentional exit is handled by handleExit() below
 
   // Haptics + sound on game over
   useEffect(() => {

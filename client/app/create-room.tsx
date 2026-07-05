@@ -10,10 +10,10 @@ import {
   SafeAreaView,
   TouchableOpacity,
   Alert,
+  Share,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
-import * as Sharing from 'expo-sharing';
 import { COLORS } from '../constants/colors';
 import { SPACING, RADIUS } from '../constants/theme';
 import Button from '../components/Button';
@@ -63,13 +63,11 @@ export default function CreateRoomScreen() {
 
   const handleShare = async () => {
     if (!roomCode) return;
-    const canShare = await Sharing.isAvailableAsync();
-    if (canShare) {
-      await Sharing.shareAsync('', {
-        dialogTitle: `Join my Chain Reaction room: ${roomCode}`,
-        mimeType: 'text/plain',
+    try {
+      await Share.share({
+        message: `Join my Chain Reaction room! Room Code: ${roomCode}`,
       });
-    } else {
+    } catch {
       await Clipboard.setStringAsync(roomCode);
       Alert.alert('Copied!', 'Room code copied to clipboard');
     }
