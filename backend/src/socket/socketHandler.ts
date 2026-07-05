@@ -252,21 +252,29 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   });
 
   // ─────────────────────────────────────────────
-  // DISCONNECT
+  // DISCONNECT — graceful 30s grace period before cleanup
   // ─────────────────────────────────────────────
-  socket.on('disconnect', () => {
-    console.log(`[Socket] Disconnected: ${socket.id}`);
+  socket.on('disconnect', (reason) => {
+    console.log(`[Socket] Disconnected: ${socket.id} reason=${reason}`);
 
     const room = findRoomByPlayerId(socket.id);
     if (!room) return;
 
-    // Notify opponent
-    socket.to(room.code).emit('player-left', {
-      playerName: room.players.find(p => p.id === socket.id)?.name ?? 'Opponent',
-    });
+    const playerName = room.players.find(p => p.id === socket.id)?.name ?? 'Opponent';
 
-    // Clean up player from room immediately
-    removePlayer(room.code, socket.id);
-    console.log(`[Room] Removed player ${socket.id} from room ${room.code} on disconnect.`);
+    // Notify opponent immediately so they see a warning
+    socket.to(room.code).emit('player-left', { playerName, temporary: true });
+
+    // ── Grace period: give the player 30 seconds to reconnect ──
+    // We do NOT remove from room immediately. If they reconnect
+    // within 30 seconds via 'reconnect-to-room', the room is intact.
+    setTimeout(() => {
+      const currentRoom = findRoomByPlayerId(socket.id);
+      if (!currentRoom) return; // Already reconnected under new socket ID
+
+      console.log(`[Room] Grace period expired for ${socket.id} in ${currentRoom.code}. Removing.`);
+      socket.to(currentRoom.code).emit('player-left', { playerName, temporary: false });
+      removePlayer(currentRoom.code, socket.id);
+    }, 30_000); // 30-second grace period
   });
 }

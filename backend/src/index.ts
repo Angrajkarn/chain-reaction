@@ -33,8 +33,9 @@ const io = new Server(httpServer, {
     origin: '*',
     methods: ['GET', 'POST'],
   },
-  pingTimeout: 60000,
-  pingInterval: 25000,
+  pingTimeout: 30000,   // Detect dead connections faster (was 60s)
+  pingInterval: 10000,  // Ping clients every 10s (was 25s)
+  connectTimeout: 10000,
 });
 
 // ─── Register all socket event handlers ──────────────────────
@@ -47,6 +48,18 @@ httpServer.listen(PORT, () => {
   console.log(`\n🚀 Chain Reaction server running on port ${PORT}`);
   console.log(`   Health: http://localhost:${PORT}/health`);
   console.log(`   Room API: http://localhost:${PORT}/room/:code\n`);
+
+  // ─── Self-ping keepalive: prevents Render free tier from sleeping ──
+  // Pings the health endpoint every 10 minutes to keep the server warm.
+  const SELF_URL = process.env.RENDER_EXTERNAL_URL ?? `http://localhost:${PORT}`;
+  setInterval(async () => {
+    try {
+      await fetch(`${SELF_URL}/health`);
+      console.log('[Keepalive] Self-ping OK');
+    } catch (e) {
+      console.warn('[Keepalive] Self-ping failed:', e);
+    }
+  }, 10 * 60 * 1000); // Every 10 minutes
 });
 
 export { io };
