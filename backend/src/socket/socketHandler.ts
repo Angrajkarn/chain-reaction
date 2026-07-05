@@ -131,20 +131,26 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
         }
       }
 
-      // Broadcast to BOTH players
-      io.to(result.code).emit('player-joined', {
-        players: result.players,
-        gameStarted: result.gameStarted,
-        board: result.board,
-        currentTurn: result.currentTurn,
-      });
-
-      // Tell joining player their assigned number
+      // ── CRITICAL: Send room-joined to Player 2 FIRST ─────────
+      // This ensures P2's roomCode and myPlayerNumber are stored in
+      // the Zustand store BEFORE player-joined triggers navigation.
       socket.emit('room-joined', {
         roomCode: result.code,
         playerNumber: 2,
         playerName: playerInfo.name,
       });
+
+      // Small delay ensures the room-joined state update is flushed
+      // before player-joined fires and triggers router.push('/game')
+      setTimeout(() => {
+        // Broadcast to BOTH players — triggers navigation on both sides
+        io.to(result.code).emit('player-joined', {
+          players: result.players,
+          gameStarted: result.gameStarted,
+          board: result.board,
+          currentTurn: result.currentTurn,
+        });
+      }, 100);
 
       console.log(`[Room] ${playerInfo.name} joined: ${result.code}`);
     } catch (err) {
