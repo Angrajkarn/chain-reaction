@@ -100,6 +100,7 @@ export default function Explosion({
 
   useEffect(() => {
     playExplosion();
+    const finishedRef = { value: false };
 
     // Snappier animation speed (320ms) for high-performance responsive feeling
     Animated.parallel([
@@ -123,9 +124,18 @@ export default function Explosion({
       }),
     ]).start((result) => {
       if (result.finished) {
+        finishedRef.value = true;
         onComplete();
       }
     });
+
+    // Safety: if component unmounts before animation finishes (fast chain),
+    // force-call onComplete to prevent cascade from freezing.
+    return () => {
+      if (!finishedRef.value) {
+        onComplete();
+      }
+    };
   }, [progress, ringScale, ringOpacity]);
 
   const size = Math.min(cellWidth, cellHeight);

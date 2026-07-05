@@ -135,11 +135,17 @@ export default function WinnerModal({
   const { primary, glow } = PLAYER_COLORS[winner];
   const confettiColors = [primary, COLORS.neonBlue, COLORS.neonPurple, COLORS.neonYellow, glow];
 
-  const confetti = Array.from({ length: 20 }, (_, i) => ({
-    x: Math.random() * W,
-    color: confettiColors[i % confettiColors.length],
-    delay: Math.random() * 500,
-  }));
+  // Stable confetti positions — generated once per winner, not on re-render
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const confetti = React.useMemo(() =>
+    Array.from({ length: 20 }, (_, i) => ({
+      x: Math.random() * W,
+      color: confettiColors[i % confettiColors.length],
+      delay: Math.random() * 500,
+    })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [winner]
+  );
 
   return (
     <Modal visible={visible} transparent animationType="fade">

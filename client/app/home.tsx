@@ -105,8 +105,6 @@ export default function HomeScreen() {
           />
         </View>
 
-
-
         {/* Footer */}
         <Text style={styles.footer}>Made for Booblie ❤️</Text>
       </SafeAreaView>

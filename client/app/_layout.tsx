@@ -39,14 +39,18 @@ function SocketInitializer() {
           clearTimeout(bgTimer.current);
           bgTimer.current = null;
         }
-        // If we lost the socket while backgrounded, reconnect to room
+        // Always attempt to rejoin room when coming back to foreground,
+        // whether the socket is already connected or had to reconnect.
         const { roomCode, myPlayerNumber } = useGameStore.getState();
         if (roomCode && myPlayerNumber) {
           const socket = getSocket();
-          if (!socket.connected) {
-            socket.once('connect', () => {
-              socket.emit('reconnect-to-room', { roomCode, playerNumber: myPlayerNumber });
-            });
+          const doReconnect = () => {
+            socket.emit('reconnect-to-room', { roomCode, playerNumber: myPlayerNumber });
+          };
+          if (socket.connected) {
+            doReconnect();
+          } else {
+            socket.once('connect', doReconnect);
           }
         }
       }
@@ -78,14 +82,21 @@ function MusicPlayer() {
           playThroughEarpieceAndroid: false,
         });
 
+        if (!active) return; // Guard: component may have unmounted during async
+
         const sound = new Audio.Sound();
         soundRef.current = sound;
-        
+
         // Stable, open, S3-hosted Mixkit ambient EDM background track (CORS allowed)
         await sound.loadAsync(
           { uri: 'https://assets.mixkit.co/music/preview/mixkit-deep-urban-623.mp3' },
           { shouldPlay: musicEnabled, isLooping: true, volume: 0.15 }
         );
+
+        if (!active) {
+          // Unmounted before load finished — unload immediately
+          sound.unloadAsync().catch(() => {});
+        }
       } catch (e) {
         // Fail silently
       }

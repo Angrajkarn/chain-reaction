@@ -51,8 +51,15 @@ export default function CreateRoomScreen() {
     const socket = getSocket();
     socket.emit('create-room', { playerName: trimmed, rows, cols });
 
-    // Navigation handled by useSocket in _layout
-    setTimeout(() => setLoading(false), 3000);
+    // Clear loading if server sends an error
+    const onError = () => setLoading(false);
+    socket.once('error', onError);
+
+    // Fallback: clear loading after 5s in case no response at all
+    setTimeout(() => {
+      setLoading(false);
+      socket.off('error', onError);
+    }, 5000);
   };
 
   const handleCopy = async () => {

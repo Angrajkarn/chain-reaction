@@ -21,6 +21,7 @@ import GameBoard from '../components/GameBoard';
 import WinnerModal from '../components/WinnerModal';
 import Button from '../components/Button';
 import GlassCard from '../components/GlassCard';
+import Header from '../components/Header';
 import { getSocket, disconnectSocket } from '../services/socket';
 import { Player } from '../types';
 
@@ -33,6 +34,7 @@ export default function GameScreen() {
     players,
     roomCode,
     myPlayerNumber,
+    currentTurn,
     gameOver,
     winner,
     winnerName,
@@ -115,6 +117,18 @@ export default function GameScreen() {
           onCellPress={handleCellPress}
         />
       </View>
+
+      {/* Header overlay: player names + turn indicator + room code */}
+      {players.length === 2 && roomCode && (
+        <SafeAreaView style={styles.headerOverlay} pointerEvents="none">
+          <Header
+            players={players}
+            currentTurn={currentTurn}
+            roomCode={roomCode}
+            myPlayerNumber={myPlayerNumber}
+          />
+        </SafeAreaView>
+      )}
 
       {/* Reconnecting overlay */}
       {isReconnecting && (
@@ -250,4 +264,11 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   alertBtn: { width: '100%' },
+  headerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 50,
+  },
 });
