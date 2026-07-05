@@ -22,11 +22,13 @@ function SingleOrb({
   dark,
   r,
   owner,
+  uniqueId,
 }: {
   color: string;
   dark: string;
   r: number;
   owner: Player;
+  uniqueId: string;
 }) {
   const pulse = useRef(new Animated.Value(1)).current;
 
@@ -52,7 +54,7 @@ function SingleOrb({
   }, [pulse]);
 
   const d = r * 2;
-  const gradientId = `g_single_${owner}`;
+  const gradientId = `g_single_${owner}_${uniqueId}`;
 
   return (
     <Animated.View
@@ -88,6 +90,7 @@ function OrbDot({
   y,
   id,
   owner,
+  uniqueId,
 }: {
   color: string;
   dark: string;
@@ -96,9 +99,10 @@ function OrbDot({
   y: number;
   id: string | number;
   owner: Player;
+  uniqueId: string;
 }) {
   const d = r * 2;
-  const gradientId = `g_orbit_${id}_${owner}`;
+  const gradientId = `g_orbit_${uniqueId}_${id}_${owner}`;
   return (
     <View
       style={{
@@ -132,9 +136,10 @@ interface OrbLayoutProps {
   owner: Player;
   size: number;
   spinValue: Animated.Value;
+  uniqueId: string;
 }
 
-function OrbLayout({ count, owner, size, spinValue }: OrbLayoutProps) {
+function OrbLayout({ count, owner, size, spinValue, uniqueId }: OrbLayoutProps) {
   const { primary: color, dark } = PLAYER_COLORS[owner];
   const r = Math.floor(size * 0.26);
   const orbit = Math.floor(size * ORBIT_RATIO);
@@ -151,20 +156,20 @@ function OrbLayout({ count, owner, size, spinValue }: OrbLayoutProps) {
 
   return (
     <View style={[styles.container, { width: size, height: size, aspectRatio: 1, alignSelf: 'center' }]}>
-      {count === 1 && <SingleOrb color={color} dark={dark} r={r} owner={owner} />}
+      {count === 1 && <SingleOrb color={color} dark={dark} r={r} owner={owner} uniqueId={uniqueId} />}
 
       {count === 2 && (
         <Animated.View style={{ width: size, height: size, aspectRatio: 1, alignSelf: 'center', transform: [{ rotate: spin }] }}>
-          <OrbDot color={color} dark={dark} r={r} x={cx + orbit - r} y={cy - r} id={1} owner={owner} />
-          <OrbDot color={color} dark={dark} r={r} x={cx - orbit - r} y={cy - r} id={2} owner={owner} />
+          <OrbDot color={color} dark={dark} r={r} x={cx + orbit - r} y={cy - r} id={1} owner={owner} uniqueId={uniqueId} />
+          <OrbDot color={color} dark={dark} r={r} x={cx - orbit - r} y={cy - r} id={2} owner={owner} uniqueId={uniqueId} />
         </Animated.View>
       )}
 
       {count >= 3 && (
         <Animated.View style={{ width: size, height: size, aspectRatio: 1, alignSelf: 'center', transform: [{ rotate: spin }] }}>
-          <OrbDot color={color} dark={dark} r={r} x={cx + orbit - r} y={cy - r} id={1} owner={owner} />
-          <OrbDot color={color} dark={dark} r={r} x={cx - 0.5 * orbit - r} y={cy + 0.866 * orbit - r} id={2} owner={owner} />
-          <OrbDot color={color} dark={dark} r={r} x={cx - 0.5 * orbit - r} y={cy - 0.866 * orbit - r} id={3} owner={owner} />
+          <OrbDot color={color} dark={dark} r={r} x={cx + orbit - r} y={cy - r} id={1} owner={owner} uniqueId={uniqueId} />
+          <OrbDot color={color} dark={dark} r={r} x={cx - 0.5 * orbit - r} y={cy + 0.866 * orbit - r} id={2} owner={owner} uniqueId={uniqueId} />
+          <OrbDot color={color} dark={dark} r={r} x={cx - 0.5 * orbit - r} y={cy - 0.866 * orbit - r} id={3} owner={owner} uniqueId={uniqueId} />
         </Animated.View>
       )}
     </View>
@@ -172,6 +177,7 @@ function OrbLayout({ count, owner, size, spinValue }: OrbLayoutProps) {
 }
 
 export default function Orb({ count, owner, size }: OrbProps) {
+  const uniqueId = useRef(Math.random().toString(36).substring(2, 9)).current;
   const [activeOwner, setActiveOwner] = useState<Player>(owner);
   const [prevOwner, setPrevOwner] = useState<Player | null>(null);
   
@@ -234,7 +240,7 @@ export default function Orb({ count, owner, size }: OrbProps) {
               transform: [{ scale }],
             }}
           >
-            <OrbLayout count={count} owner={prevOwner} size={size} spinValue={spinValue} />
+            <OrbLayout count={count} owner={prevOwner} size={size} spinValue={spinValue} uniqueId={uniqueId} />
           </Animated.View>
 
           {/* Current owner fading in */}
@@ -250,13 +256,13 @@ export default function Orb({ count, owner, size }: OrbProps) {
               transform: [{ scale }],
             }}
           >
-            <OrbLayout count={count} owner={activeOwner} size={size} spinValue={spinValue} />
+            <OrbLayout count={count} owner={activeOwner} size={size} spinValue={spinValue} uniqueId={uniqueId} />
           </Animated.View>
         </>
       ) : (
         /* Static stable state rendering */
         <Animated.View style={{ width: size, height: size }}>
-          <OrbLayout count={count} owner={activeOwner} size={size} spinValue={spinValue} />
+          <OrbLayout count={count} owner={activeOwner} size={size} spinValue={spinValue} uniqueId={uniqueId} />
         </Animated.View>
       )}
     </View>
