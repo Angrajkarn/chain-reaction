@@ -44,13 +44,17 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       const room = createRoom(playerInfo, rows, cols);
       socket.join(room.code);
 
+      // Store on socket instance for later restoration
+      (socket.data as any).roomCode = room.code;
+      (socket.data as any).playerNumber = 1;
+
       socket.emit('room-created', {
         roomCode: room.code,
         playerNumber: 1,
         playerName: playerInfo.name,
       });
 
-      console.log(`[Room] Created: ${room.code} (${room.board[0]?.length || 6}x${room.board.length || 13}) by ${playerInfo.name}`);
+      console.log(`[Room] Created: ${room.code} by ${playerInfo.name}`);
     } catch (err) {
       console.error('[create-room] Error:', err);
       socket.emit('error', { message: 'Failed to create room.' });
@@ -72,13 +76,38 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
         return;
       }
 
+      const upperCode = roomCode.toUpperCase();
+      const existingRoom = getRoom(upperCode);
+
+      if (!existingRoom) {
+        socket.emit('join-error', { message: 'Room does not exist.' });
+        return;
+      }
+
+      // ── Stale socket eviction ─────────────────────────────────
+      // If the room already shows 2 players but player 2's socket is
+      // gone (disconnected / stale), evict them so the new join works.
+      if (existingRoom.players.length >= 2) {
+        const p2 = existingRoom.players.find(p => p.playerNumber === 2);
+        if (p2) {
+          const p2Socket = io.sockets.sockets.get(p2.id);
+          if (!p2Socket || !p2Socket.connected) {
+            console.log(`[Room] Evicting stale P2 (${p2.id}) from room ${upperCode}`);
+            removePlayer(upperCode, p2.id);
+          } else {
+            socket.emit('join-error', { message: 'Room already has two players.' });
+            return;
+          }
+        }
+      }
+
       const playerInfo: PlayerInfo = {
         id: socket.id,
         name: playerName.trim().slice(0, 20),
         playerNumber: 2,
       };
 
-      const result = joinRoom(roomCode.toUpperCase(), playerInfo);
+      const result = joinRoom(upperCode, playerInfo);
 
       if ('error' in result) {
         socket.emit('join-error', { message: result.error });
@@ -86,8 +115,23 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       }
 
       socket.join(result.code);
+      (socket.data as any).roomCode = result.code;
+      (socket.data as any).playerNumber = 2;
 
-      // Notify both players
+      // ── Re-sync Player 1 into the Socket.IO room channel ──────
+      // If P1 reconnected after creating the room, their new socket
+      // lost its Socket.IO room membership. Force them back in so
+      // they receive the player-joined broadcast.
+      const p1 = result.players.find(p => p.playerNumber === 1);
+      if (p1) {
+        const p1Socket = io.sockets.sockets.get(p1.id);
+        if (p1Socket && p1Socket.connected) {
+          p1Socket.join(result.code);
+          console.log(`[Room] Re-synced P1 (${p1.id}) into channel ${result.code}`);
+        }
+      }
+
+      // Broadcast to BOTH players
       io.to(result.code).emit('player-joined', {
         players: result.players,
         gameStarted: result.gameStarted,
@@ -95,7 +139,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
         currentTurn: result.currentTurn,
       });
 
-      // Tell the joining player their number
+      // Tell joining player their assigned number
       socket.emit('room-joined', {
         roomCode: result.code,
         playerNumber: 2,
@@ -112,68 +156,41 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   // ─────────────────────────────────────────────
   // MOVE
   // ─────────────────────────────────────────────
-  socket.on('move', ({ roomCode, row, col, playerId }: MovePayload) => {
+  socket.on('move', ({ roomCode, row, col }: MovePayload) => {
     try {
       const room = getRoom(roomCode);
+      if (!room) { socket.emit('error', { message: 'Room not found.' }); return; }
 
-      // Security: validate room exists
-      if (!room) {
-        socket.emit('error', { message: 'Room not found.' });
-        return;
-      }
-
-      // Security: validate it is this player's turn
       const player = room.players.find(p => p.id === socket.id);
-      if (!player) {
-        socket.emit('error', { message: 'You are not in this room.' });
-        return;
-      }
+      if (!player) { socket.emit('error', { message: 'You are not in this room.' }); return; }
+      if (player.playerNumber !== room.currentTurn) { socket.emit('error', { message: 'Not your turn.' }); return; }
+      if (room.gameOver) { socket.emit('error', { message: 'Game is already over.' }); return; }
 
-      if (player.playerNumber !== room.currentTurn) {
-        socket.emit('error', { message: 'Not your turn.' });
-        return;
-      }
-
-      if (room.gameOver) {
-        socket.emit('error', { message: 'Game is already over.' });
-        return;
-      }
-
-      // Security: validate the move
       const validation = isValidMove(room.board, row, col, player.playerNumber);
-      if (!validation.valid) {
-        socket.emit('error', { message: validation.reason || 'Invalid move.' });
-        return;
-      }
+      if (!validation.valid) { socket.emit('error', { message: validation.reason || 'Invalid move.' }); return; }
 
-      // Apply move
       const newBoard = applyMove(room.board, row, col, player.playerNumber as Player);
       const newTurnCount = room.turnCount + 1;
       const nextTurn: Player = room.currentTurn === 1 ? 2 : 1;
       const winner = checkWinner(newBoard, newTurnCount);
 
-      // Persist state
       updateRoomBoard(roomCode, newBoard, nextTurn, newTurnCount, winner);
 
-      // Broadcast updated board
       io.to(roomCode).emit('board-update', {
         board: newBoard,
         currentTurn: nextTurn,
         turnCount: newTurnCount,
         lastMove: { row, col, player: player.playerNumber },
       });
-
-      // Broadcast turn change
       io.to(roomCode).emit('turn-change', { currentTurn: nextTurn });
 
-      // Check for game over
       if (winner !== null) {
         const winnerPlayer = room.players.find(p => p.playerNumber === winner);
         io.to(roomCode).emit('game-over', {
           winner,
           winnerName: winnerPlayer?.name ?? `Player ${winner}`,
         });
-        console.log(`[Game] Winner in room ${roomCode}: Player ${winner} (${winnerPlayer?.name})`);
+        console.log(`[Game] Winner in room ${roomCode}: Player ${winner}`);
       }
     } catch (err) {
       console.error('[move] Error:', err);
@@ -187,16 +204,8 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   socket.on('restart', ({ roomCode }: { roomCode: string }) => {
     try {
       const room = getRoom(roomCode);
-      if (!room) {
-        socket.emit('error', { message: 'Room not found.' });
-        return;
-      }
-
-      // Both players must be present to restart
-      if (room.players.length < 2) {
-        socket.emit('error', { message: 'Waiting for opponent.' });
-        return;
-      }
+      if (!room) { socket.emit('error', { message: 'Room not found.' }); return; }
+      if (room.players.length < 2) { socket.emit('error', { message: 'Waiting for opponent.' }); return; }
 
       const updatedRoom = resetRoom(roomCode);
       if (!updatedRoom) return;
@@ -206,7 +215,6 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
         currentTurn: updatedRoom.currentTurn,
         players: updatedRoom.players,
       });
-
       console.log(`[Room] Restarted: ${roomCode}`);
     } catch (err) {
       console.error('[restart] Error:', err);
@@ -214,24 +222,19 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   });
 
   // ─────────────────────────────────────────────
-  // RECONNECT — restore player to room
+  // RECONNECT — restore player to existing room
   // ─────────────────────────────────────────────
   socket.on('reconnect-to-room', ({ roomCode, playerNumber }: { roomCode: string; playerNumber: Player }) => {
     try {
       const room = getRoom(roomCode);
-      if (!room) {
-        socket.emit('reconnect-failed', { message: 'Room no longer exists.' });
-        return;
-      }
+      if (!room) { socket.emit('reconnect-failed', { message: 'Room no longer exists.' }); return; }
 
-      // Update this player's socket ID
       const updatedRoom = updatePlayerSocketId(roomCode, playerNumber, socket.id);
-      if (!updatedRoom) {
-        socket.emit('reconnect-failed', { message: 'Could not reconnect.' });
-        return;
-      }
+      if (!updatedRoom) { socket.emit('reconnect-failed', { message: 'Could not reconnect.' }); return; }
 
       socket.join(roomCode);
+      (socket.data as any).roomCode = roomCode;
+      (socket.data as any).playerNumber = playerNumber;
 
       socket.emit('reconnect-success', {
         board: updatedRoom.board,
@@ -242,17 +245,15 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
         winner: updatedRoom.winner,
       });
 
-      // Notify opponent
       socket.to(roomCode).emit('opponent-reconnected', { playerNumber });
-
-      console.log(`[Reconnect] Player ${playerNumber} reconnected to ${roomCode}`);
+      console.log(`[Reconnect] Player ${playerNumber} back in ${roomCode}`);
     } catch (err) {
       console.error('[reconnect-to-room] Error:', err);
     }
   });
 
   // ─────────────────────────────────────────────
-  // DISCONNECT — graceful 30s grace period before cleanup
+  // DISCONNECT — 30s grace period before cleanup
   // ─────────────────────────────────────────────
   socket.on('disconnect', (reason) => {
     console.log(`[Socket] Disconnected: ${socket.id} reason=${reason}`);
@@ -261,20 +262,20 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
     if (!room) return;
 
     const playerName = room.players.find(p => p.id === socket.id)?.name ?? 'Opponent';
+    const savedSocketId = socket.id;
+    const savedRoomCode = room.code;
 
-    // Notify opponent immediately so they see a warning
-    socket.to(room.code).emit('player-left', { playerName, temporary: true });
+    // Warn opponent immediately (temporary flag = brief drop)
+    socket.to(savedRoomCode).emit('player-left', { playerName, temporary: true });
 
-    // ── Grace period: give the player 30 seconds to reconnect ──
-    // We do NOT remove from room immediately. If they reconnect
-    // within 30 seconds via 'reconnect-to-room', the room is intact.
+    // Give 30 seconds to reconnect before destroying their slot
     setTimeout(() => {
-      const currentRoom = findRoomByPlayerId(socket.id);
-      if (!currentRoom) return; // Already reconnected under new socket ID
+      const stillPresent = findRoomByPlayerId(savedSocketId);
+      if (!stillPresent) return; // Already reconnected with new socket ID
 
-      console.log(`[Room] Grace period expired for ${socket.id} in ${currentRoom.code}. Removing.`);
-      socket.to(currentRoom.code).emit('player-left', { playerName, temporary: false });
-      removePlayer(currentRoom.code, socket.id);
-    }, 30_000); // 30-second grace period
+      console.log(`[Room] Grace expired for ${savedSocketId} — removing from ${savedRoomCode}`);
+      socket.to(savedRoomCode).emit('player-left', { playerName, temporary: false });
+      removePlayer(savedRoomCode, savedSocketId);
+    }, 30_000);
   });
 }
