@@ -2,13 +2,14 @@
 // Home Screen — Main menu with navigation buttons
 // ============================================================
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   SafeAreaView,
   Dimensions,
+  Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { COLORS } from '../constants/colors';
@@ -18,6 +19,7 @@ import ParticleBackground from '../components/ParticleBackground';
 import SettingsModal from '../components/SettingsModal';
 import AboutModal from '../components/AboutModal';
 import { TouchableOpacity } from 'react-native';
+import { fetchGreetingMessage } from '../services/api';
 
 const { width: W } = Dimensions.get('window');
 
@@ -25,6 +27,21 @@ export default function HomeScreen() {
   const router = useRouter();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [greeting, setGreeting] = useState<string | null>(null);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    fetchGreetingMessage().then((msg) => {
+      if (msg) {
+        setGreeting(msg);
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: true,
+        }).start();
+      }
+    });
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -45,6 +62,14 @@ export default function HomeScreen() {
           <Text style={[styles.title, styles.titleAccent]}>REACTION</Text>
           <Text style={styles.tagline}>Private Multiplayer Strategy</Text>
         </View>
+
+        {/* Server Greeting Banner */}
+        {greeting && (
+          <Animated.View style={[styles.greetingBanner, { opacity: fadeAnim }]}>
+            <Text style={styles.greetingEmoji}>💌</Text>
+            <Text style={styles.greetingText}>{greeting}</Text>
+          </Animated.View>
+        )}
 
         {/* Menu buttons */}
         <View style={styles.menu}>
@@ -170,5 +195,29 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     fontWeight: '500',
+  },
+  greetingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    backgroundColor: 'rgba(255, 75, 43, 0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 75, 43, 0.30)',
+    borderRadius: RADIUS.lg,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    width: '100%',
+    marginBottom: SPACING.xs,
+  },
+  greetingEmoji: {
+    fontSize: 18,
+  },
+  greetingText: {
+    flex: 1,
+    color: 'rgba(255, 200, 180, 0.90)',
+    fontSize: 13,
+    fontWeight: '600',
+    fontStyle: 'italic',
+    letterSpacing: 0.4,
   },
 });

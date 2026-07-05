@@ -18,3 +18,14 @@ export async function fetchRoomInfo(code: string): Promise<{
     return null;
   }
 }
+
+export async function fetchGreetingMessage(): Promise<string | null> {
+  try {
+    const response = await fetch(`${SERVER_URL}/greeting`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.message || null;
+  } catch {
+    return null;
+  }
+}

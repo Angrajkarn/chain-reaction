@@ -25,6 +25,11 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
+// Greeting banner message
+app.get('/greeting', (_req, res) => {
+  res.json({ message: 'Sorry Booblie G for being late... ❤️' });
+});
+
 // ─── HTTP + Socket.IO Server ─────────────────────────────────
 const httpServer = createServer(app);
 
