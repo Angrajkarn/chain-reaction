@@ -11,16 +11,13 @@ import {
   TouchableOpacity,
   Dimensions,
   ScrollView,
-  Share,
   Alert,
   SafeAreaView,
 } from 'react-native';
-import { useRef, useEffect } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '../constants/colors';
 import { SPACING, RADIUS } from '../constants/theme';
 import Button from './Button';
-import { RewardedInterstitialAd, AdEventType, RewardedAdEventType, TestIds } from 'react-native-google-mobile-ads';
 
 const { width: W } = Dimensions.get('window');
 
@@ -42,73 +39,12 @@ const QUOTES = [
   "You don't need to win the board. You won my entire repository already! 🏗️🌸",
 ];
 
-const REWARDED_AD_UNIT_ID = __DEV__ 
-  ? TestIds.REWARDED_INTERSTITIAL 
-  : 'ca-app-pub-9490969329975402/7854748323';
-
 export default function AboutModal({ visible, onClose }: AboutModalProps) {
   const [moodIdea, setMoodIdea] = useState(QUOTES[0]);
 
   const rollMood = () => {
     const nextIdx = Math.floor(Math.random() * QUOTES.length);
     setMoodIdea(QUOTES[nextIdx]);
-  };
-
-  const [adLoaded, setAdLoaded] = useState(false);
-  const adsRef = useRef<any>(null);
-
-  useEffect(() => {
-    if (visible) {
-      const rewardedInterstitial = RewardedInterstitialAd.createForAdRequest(REWARDED_AD_UNIT_ID, {
-        requestNonPersonalizedAdsOnly: true,
-      });
-
-      const unsubscribeLoaded = rewardedInterstitial.addAdEventListener(
-        AdEventType.LOADED,
-        () => {
-          setAdLoaded(true);
-        }
-      );
-
-      const unsubscribeEarned = rewardedInterstitial.addAdEventListener(
-        RewardedAdEventType.EARNED_REWARD,
-        (reward) => {
-          Alert.alert(
-            "💖 Love Power-Up Activated!",
-            "Booblie is now legally 200% more adorable! Infinite hearts unleashed! ❤️✨",
-            [{ text: "Yay! 🥰" }]
-          );
-        }
-      );
-
-      const unsubscribeClosed = rewardedInterstitial.addAdEventListener(
-        AdEventType.CLOSED,
-        () => {
-          setAdLoaded(false);
-          rewardedInterstitial.load(); // Preload next ad
-        }
-      );
-
-      rewardedInterstitial.load();
-      adsRef.current = rewardedInterstitial;
-
-      return () => {
-        unsubscribeLoaded();
-        unsubscribeEarned();
-        unsubscribeClosed();
-      };
-    }
-  }, [visible]);
-
-  const handleShowRewarded = () => {
-    if (adLoaded && adsRef.current) {
-      adsRef.current.show();
-    } else {
-      Alert.alert(
-        "Loading ad...",
-        "Ad is prepping to load romantic power-ups. Please try again in a few seconds! 😘"
-      );
-    }
   };
 
   return (
@@ -153,20 +89,6 @@ export default function AboutModal({ visible, onClose }: AboutModalProps) {
               <Text style={styles.promiseText}>
                 Booblie is permitted to steal my atoms if she looks at me of if she smiles. Tapping to conquer her cells is legally blocked by the cute filter.
               </Text>
-            </View>
-
-            {/* Premium Rewarded Ad Trigger */}
-            <View style={styles.moodBox}>
-              <Text style={styles.sectionHeader}>👑 Queen's Love Power-Up (Rewarded Ad)</Text>
-              <Text style={styles.dedicationText}>
-                Watch a quick ad to reward Booblie with extra love sparks & premium hearts!
-              </Text>
-              <Button
-                label={adLoaded ? "💖 Load Love Power-Up" : "⏳ Readying ad... tap again"}
-                onPress={handleShowRewarded}
-                variant="primary"
-                style={styles.moodBtn}
-              />
             </View>
 
             {/* Strategy Stats */}

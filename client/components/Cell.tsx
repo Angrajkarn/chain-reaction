@@ -35,15 +35,9 @@ export default function Cell({
   maxCols,
 }: CellProps) {
 
-  const canInteract =
-    isMyTurn &&
-    myPlayerNumber !== null &&
-    (data.owner === null || data.owner === myPlayerNumber);
-
   const handlePress = useCallback(() => {
-    if (!canInteract) return;
     onPress(row, col);
-  }, [canInteract, onPress, row, col]);
+  }, [onPress, row, col]);
 
   const critMass = getCriticalMass(row, col, maxRows, maxCols);
   const isFull = data.count >= critMass - 1;
@@ -53,9 +47,8 @@ export default function Cell({
   return (
     <TouchableOpacity
       onPress={handlePress}
-      activeOpacity={canInteract ? 0.8 : 1}
+      activeOpacity={0.8}
       style={[styles.touch, { width: cellWidth, height: cellHeight }]}
-      disabled={!canInteract}
     >
       <View
         style={[

@@ -15,7 +15,6 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
-import * as Sharing from 'expo-sharing';
 import { COLORS } from '../constants/colors';
 import { SPACING, RADIUS } from '../constants/theme';
 import GlassCard from '../components/GlassCard';

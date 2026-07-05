@@ -17,7 +17,6 @@ import Button from '../components/Button';
 import ParticleBackground from '../components/ParticleBackground';
 import SettingsModal from '../components/SettingsModal';
 import AboutModal from '../components/AboutModal';
-import AdBanner from '../components/AdBanner';
 import { TouchableOpacity } from 'react-native';
 
 const { width: W } = Dimensions.get('window');
@@ -81,8 +80,7 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* AdMob Banner */}
-        <AdBanner />
+
 
         {/* Footer */}
         <Text style={styles.footer}>Made for Booblie ❤️</Text>

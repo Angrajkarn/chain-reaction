@@ -83,6 +83,8 @@ export function useSocket(bindListeners = false) {
 
     const onBoardUpdate = ({ board: newBoard, currentTurn, turnCount, lastMove }: BoardUpdatePayload) => {
       const currentBoard = useGameStore.getState().board;
+      // Read myPlayerNumber fresh from store (not stale closure)
+      const freshPlayerNumber = useGameStore.getState().myPlayerNumber;
       setMovePending(false);
       setBoard(newBoard);
       setCurrentTurn(currentTurn);
@@ -98,7 +100,7 @@ export function useSocket(bindListeners = false) {
             addExplosion(row, col, player as Player);
           }
         }
-        if (player !== myPlayerNumber) {
+        if (player !== freshPlayerNumber) {
           playTap(player as Player);
         }
       }
@@ -132,8 +134,10 @@ export function useSocket(bindListeners = false) {
       setPlayers(players);
       setMyPlayerNumber(playerNumber);
       setGameOver(gameOver, winner, null);
+      setGameStarted(true); // Ensure game is interactive after reconnect
       setConnected(true);
       setReconnecting(false);
+      // Only navigate if not already on the game screen
       router.push('/game');
     };
 
