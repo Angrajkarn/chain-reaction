@@ -2,7 +2,7 @@
 // Join Room Screen
 // ============================================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   SafeAreaView,
   TouchableOpacity,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { COLORS } from '../constants/colors';
 import { SPACING } from '../constants/theme';
 import Button from '../components/Button';
@@ -18,7 +18,7 @@ import Input from '../components/Input';
 import GlassCard from '../components/GlassCard';
 import ParticleBackground from '../components/ParticleBackground';
 import { useGameStore } from '../store/gameStore';
-import { getSocket } from '../services/socket';
+import { getSocket, disconnectSocket } from '../services/socket';
 import { ROOM_CODE_LENGTH } from '../constants/config';
 
 export default function JoinRoomScreen() {
@@ -28,6 +28,19 @@ export default function JoinRoomScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const setMyName = useGameStore((s) => s.setMyName);
+  const fullReset = useGameStore((s) => s.fullReset);
+
+  // Clear any stale room/game state whenever this screen comes into focus.
+  // Handles: back press from /game screen after a match ends.
+  useFocusEffect(
+    useCallback(() => {
+      const staleCode = useGameStore.getState().roomCode;
+      if (staleCode) {
+        disconnectSocket();
+        fullReset();
+      }
+    }, [])
+  );
 
   useEffect(() => {
     const socket = getSocket();

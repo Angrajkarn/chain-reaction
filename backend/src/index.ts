@@ -25,9 +25,28 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
-// Greeting banner message
+// Pool of rotating romantic banner messages — picked randomly each request
+const ROMANTIC_MESSAGES = [
+  "Missing you already, Booblie G 💕 Come play with me!",
+  "Every move I make on this board, I think of you 💖",
+  "This game was built for only one reason — to play with you 🥰",
+  "You're my Player 1, always. No matter who wins 👑❤️",
+  "Distance means nothing when we're connected here 🌟",
+  "In a world full of glitches, you're my favorite feature 💻❤️",
+  "I'd lose every match just to see you smile, Booblie 🌸",
+  "You make every round worth playing 💞",
+  "Warning: Opponent too cute. Defensive mode: Disabled 😍",
+  "My heart has zero latency for you ❤️📶",
+  "This board resets, but my love for you never does 💫",
+  "You're the chain reaction I never want to stop 🔥💕",
+  "Even the grid knows — every cell belongs to you 💖",
+  "No better opponent, no better person — it's always you 🥰",
+];
+
+// Greeting banner message — rotates randomly on each request
 app.get('/greeting', (_req, res) => {
-  res.json({ message: 'Sorry Booblie G for being late... ❤️' });
+  const msg = ROMANTIC_MESSAGES[Math.floor(Math.random() * ROMANTIC_MESSAGES.length)];
+  res.json({ message: msg });
 });
 
 // ─── HTTP + Socket.IO Server ─────────────────────────────────

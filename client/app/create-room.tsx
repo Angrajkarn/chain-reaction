@@ -2,7 +2,7 @@
 // Create Room Screen
 // ============================================================
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
   Alert,
   Share,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { COLORS } from '../constants/colors';
 import { SPACING, RADIUS } from '../constants/theme';
@@ -22,7 +22,7 @@ import GlassCard from '../components/GlassCard';
 import ParticleBackground from '../components/ParticleBackground';
 import { useGameStore } from '../store/gameStore';
 import { useSettingsStore } from '../store/settingsStore';
-import { getSocket } from '../services/socket';
+import { getSocket, disconnectSocket } from '../services/socket';
 
 export default function CreateRoomScreen() {
   const router = useRouter();
@@ -32,6 +32,19 @@ export default function CreateRoomScreen() {
   const myName = useGameStore((s) => s.myName);
   const setMyName = useGameStore((s) => s.setMyName);
   const roomCode = useGameStore((s) => s.roomCode);
+  const fullReset = useGameStore((s) => s.fullReset);
+
+  // Clear any stale room state whenever this screen comes into focus.
+  // Handles: Android back-press from /waiting, or revisiting after a match.
+  useFocusEffect(
+    useCallback(() => {
+      const staleCode = useGameStore.getState().roomCode;
+      if (staleCode) {
+        disconnectSocket();
+        fullReset();
+      }
+    }, [])
+  );
 
   const handleCreate = () => {
     const trimmed = name.trim();

@@ -73,7 +73,7 @@ export default function GameScreen() {
   // Do NOT disconnect on normal navigation (e.g. accidental back press)
   // Intentional exit is handled by handleExit() below
 
-  // Haptics + sound on game over
+  // Haptics + sound + auto-exit for loser
   useEffect(() => {
     if (gameOver && winner !== null) {
       if (winner === myPlayerNumber) {
@@ -82,6 +82,13 @@ export default function GameScreen() {
       } else {
         heavyPulse();
         playDefeat();
+        // Loser auto-exits to home after 2.5 seconds
+        const timer = setTimeout(() => {
+          disconnectSocket();
+          fullReset();
+          router.replace('/home');
+        }, 2500);
+        return () => clearTimeout(timer);
       }
     }
   }, [gameOver, winner]);
@@ -148,15 +155,25 @@ export default function GameScreen() {
         </SafeAreaView>
       )}
 
-      {/* Winner Modal */}
+      {/* Winner Modal — only shown to the WINNER */}
       <WinnerModal
-        visible={gameOver && winner !== null}
+        visible={gameOver && winner !== null && winner === myPlayerNumber}
         winner={winner}
         winnerName={winnerName}
-        isMe={winner === myPlayerNumber}
+        isMe={true}
         onPlayAgain={handlePlayAgain}
         onExit={handleExit}
       />
+
+      {/* Loser overlay — shown briefly before auto-redirect */}
+      {gameOver && winner !== null && winner !== myPlayerNumber && (
+        <View style={styles.loseOverlay}>
+          <Text style={styles.loseEmoji}>💔</Text>
+          <Text style={styles.loseTitle}>DEFEATED</Text>
+          <Text style={styles.loseSubtitle}>{winnerName ?? `Player ${winner}`} wins this round...</Text>
+          <Text style={styles.loseHint}>Going back to home...</Text>
+        </View>
+      )}
 
       {/* Opponent Left Modal */}
       <Modal visible={opponentLeftVisible} transparent animationType="fade">
@@ -270,5 +287,36 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 50,
+  },
+  loseOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.88)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 999,
+    gap: SPACING.md,
+  },
+  loseEmoji: {
+    fontSize: 72,
+    marginBottom: SPACING.sm,
+  },
+  loseTitle: {
+    fontSize: 36,
+    fontWeight: '900',
+    color: '#ff2d55',
+    letterSpacing: 4,
+  },
+  loseSubtitle: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.7)',
+    fontWeight: '600',
+    textAlign: 'center',
+    paddingHorizontal: SPACING.xl,
+  },
+  loseHint: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.35)',
+    fontWeight: '500',
+    marginTop: SPACING.sm,
   },
 });
