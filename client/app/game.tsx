@@ -2,15 +2,17 @@
 // Game Screen — Main gameplay screen
 // ============================================================
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   SafeAreaView,
   Modal,
+  TouchableOpacity,
+  BackHandler,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useNavigation } from 'expo-router';
 import { useGameStore } from '../store/gameStore';
 import { useGame } from '../hooks/useGame';
 import { useHaptics } from '../hooks/useHaptics';
@@ -22,13 +24,19 @@ import WinnerModal from '../components/WinnerModal';
 import Button from '../components/Button';
 import GlassCard from '../components/GlassCard';
 import Header from '../components/Header';
+import SettingsModal from '../components/SettingsModal';
 import { getSocket, disconnectSocket } from '../services/socket';
 import { Player } from '../types';
 
 export default function GameScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
+  const isExiting = useRef(false);
   const { heavyPulse, successNotify } = useHaptics();
   const { playVictory, playDefeat } = useSound();
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const {
     players,
@@ -52,6 +60,27 @@ export default function GameScreen() {
 
   const [opponentLeftVisible, setOpponentLeftVisible] = useState(false);
   const [opponentLeftName, setOpponentLeftName] = useState('');
+
+  // Intercept iOS swipe-back and Expo navigation back gesture → open pause menu
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
+      if (isExiting.current || gameOver) return;
+      e.preventDefault();
+      setMenuOpen(true);
+    });
+    return unsubscribe;
+  }, [navigation, gameOver]);
+
+  // Intercept Android hardware back button → open pause menu
+  useEffect(() => {
+    const onBackPress = () => {
+      if (gameOver) return false; // Allow default exit if game already over
+      setMenuOpen(true);
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [gameOver]);
 
   // Handle "player-left" socket event
   useEffect(() => {
@@ -108,11 +137,12 @@ export default function GameScreen() {
     handleRestart();
   };
 
-  const handleExit = () => {
+  const handleExit = useCallback(() => {
+    isExiting.current = true;
     disconnectSocket();
     fullReset();
     router.replace('/home');
-  };
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -174,6 +204,63 @@ export default function GameScreen() {
           <Text style={styles.loseHint}>Going back to home...</Text>
         </View>
       )}
+
+      {/* ─── Pause Menu Modal (back press) ───────────────────── */}
+      <Modal
+        visible={menuOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.menuContainer}>
+            <Text style={styles.menuTitle}>⏸ GAME PAUSED</Text>
+
+            {roomCode && (
+              <Text style={styles.menuRoomCode}>Room: {roomCode}</Text>
+            )}
+
+            {/* Resume */}
+            <TouchableOpacity
+              onPress={() => setMenuOpen(false)}
+              style={[styles.menuBtn, styles.menuBtnPrimary]}
+            >
+              <Text style={styles.menuBtnText}>▶  Resume Game</Text>
+            </TouchableOpacity>
+
+            {/* Settings */}
+            <TouchableOpacity
+              onPress={() => {
+                setMenuOpen(false);
+                setSettingsOpen(true);
+              }}
+              style={styles.menuBtn}
+            >
+              <Text style={styles.menuBtnText}>⚙️  Settings</Text>
+            </TouchableOpacity>
+
+            {/* Exit */}
+            <TouchableOpacity
+              onPress={() => {
+                setMenuOpen(false);
+                handleExit();
+              }}
+              style={[styles.menuBtn, styles.menuBtnDanger]}
+            >
+              <Text style={styles.menuBtnText}>🚪  Exit to Main Menu</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Settings modal (opened from pause menu) */}
+      <SettingsModal
+        visible={settingsOpen}
+        onClose={() => {
+          setSettingsOpen(false);
+          setMenuOpen(true);
+        }}
+      />
 
       {/* Opponent Left Modal */}
       <Modal visible={opponentLeftVisible} transparent animationType="fade">
@@ -296,16 +383,8 @@ const styles = StyleSheet.create({
     zIndex: 999,
     gap: SPACING.md,
   },
-  loseEmoji: {
-    fontSize: 72,
-    marginBottom: SPACING.sm,
-  },
-  loseTitle: {
-    fontSize: 36,
-    fontWeight: '900',
-    color: '#ff2d55',
-    letterSpacing: 4,
-  },
+  loseEmoji: { fontSize: 72, marginBottom: SPACING.sm },
+  loseTitle: { fontSize: 36, fontWeight: '900', color: '#ff2d55', letterSpacing: 4 },
   loseSubtitle: {
     fontSize: 16,
     color: 'rgba(255,255,255,0.7)',
@@ -318,5 +397,65 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.35)',
     fontWeight: '500',
     marginTop: SPACING.sm,
+  },
+  // ─── Pause menu styles ───────────────────────────────────
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(5,5,10,0.87)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuContainer: {
+    width: '85%',
+    backgroundColor: '#12121a',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 24,
+    padding: 24,
+    gap: 14,
+    alignItems: 'stretch',
+    shadowColor: '#000',
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+  },
+  menuTitle: {
+    color: '#FFF',
+    fontSize: 17,
+    fontWeight: '900',
+    letterSpacing: 2,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  menuRoomCode: {
+    color: 'rgba(255,255,255,0.35)',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 3,
+    textAlign: 'center',
+    marginTop: -8,
+  },
+  menuBtn: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuBtnPrimary: {
+    backgroundColor: 'rgba(0,212,255,0.15)',
+    borderColor: 'rgba(0,212,255,0.35)',
+  },
+  menuBtnDanger: {
+    backgroundColor: 'rgba(255,50,50,0.12)',
+    borderColor: 'rgba(255,50,50,0.28)',
+  },
+  menuBtnText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.8,
   },
 });
