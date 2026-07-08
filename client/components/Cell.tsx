@@ -80,12 +80,11 @@ function CellComponent({
   );
 }
 
-// Memoized to prevent re-render of cells that haven't changed
+// Memoized to prevent re-render of unchanged cells (optimized for 60fps gameplay performance)
 export default React.memo(CellComponent, (prev, next) => {
   return (
     prev.data.count === next.data.count &&
     prev.data.owner === next.data.owner &&
-    prev.isMyTurn === next.isMyTurn &&
     prev.cellWidth === next.cellWidth &&
     prev.cellHeight === next.cellHeight
   );

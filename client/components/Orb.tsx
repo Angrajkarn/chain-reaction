@@ -4,7 +4,7 @@
 // count: 1 = pulsing center, 2 = orbiting pair, 3 = triangle orbit
 // ============================================================
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { PLAYER_COLORS } from '../constants/colors';
@@ -186,11 +186,8 @@ function OrbLayout({ count, owner, size, spinValue }: OrbLayoutProps) {
   );
 }
 
-// ─── Main Orb component with crossfade on owner change ───────
+// ─── Main Orb component ──────────────────────────────────────
 export default function Orb({ count, owner, size }: OrbProps) {
-  const [activeOwner, setActiveOwner] = useState<Player>(owner);
-  const [prevOwner, setPrevOwner] = useState<Player | null>(null);
-  const transitionVal = useRef(new Animated.Value(1)).current;
   const spinValue = useRef(new Animated.Value(0)).current;
 
   // Spin loop for 2+ orb counts
@@ -209,63 +206,9 @@ export default function Orb({ count, owner, size }: OrbProps) {
     }
   }, [count, spinValue]);
 
-  // Crossfade color transition on owner change
-  useEffect(() => {
-    if (owner !== activeOwner) {
-      setPrevOwner(activeOwner);
-      setActiveOwner(owner);
-      transitionVal.setValue(0);
-
-      Animated.timing(transitionVal, {
-        toValue: 1,
-        duration: 380,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }).start(() => setPrevOwner(null));
-    }
-  }, [owner, activeOwner]);
-
-  const scale = transitionVal.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [1, 1.1, 1],
-  });
-
   return (
-    <View style={{ width: size, height: size, position: 'relative' }}>
-      {prevOwner !== null ? (
-        <>
-          {/* Previous owner fading out */}
-          <Animated.View
-            style={{
-              position: 'absolute',
-              width: size,
-              height: size,
-              opacity: transitionVal.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
-              transform: [{ scale }],
-            }}
-          >
-            <OrbLayout count={count} owner={prevOwner} size={size} spinValue={spinValue} />
-          </Animated.View>
-
-          {/* Current owner fading in */}
-          <Animated.View
-            style={{
-              position: 'absolute',
-              width: size,
-              height: size,
-              opacity: transitionVal.interpolate({ inputRange: [0, 1], outputRange: [0, 1] }),
-              transform: [{ scale }],
-            }}
-          >
-            <OrbLayout count={count} owner={activeOwner} size={size} spinValue={spinValue} />
-          </Animated.View>
-        </>
-      ) : (
-        /* Stable render — no transition */
-        <Animated.View style={{ width: size, height: size }}>
-          <OrbLayout count={count} owner={activeOwner} size={size} spinValue={spinValue} />
-        </Animated.View>
-      )}
+    <View style={{ width: size, height: size }}>
+      <OrbLayout count={count} owner={owner} size={size} spinValue={spinValue} />
     </View>
   );
 }
