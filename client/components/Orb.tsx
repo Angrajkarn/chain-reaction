@@ -1,11 +1,12 @@
 // ============================================================
-// Orb — Glowing energy sphere with continuous animation & color transitions
-// count: 1 = single center, 2 = orbiting pair, 3 = triangle orbit
+// Orb — 3D energy sphere rendered via LinearGradient (no SVG)
+// Eliminates all SVG gradient ID collision issues on Android.
+// count: 1 = pulsing center, 2 = orbiting pair, 3 = triangle orbit
 // ============================================================
 
 import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, Animated, Easing } from 'react-native';
-import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import { PLAYER_COLORS } from '../constants/colors';
 import { Player } from '../types';
 
@@ -15,35 +16,24 @@ interface OrbProps {
   size: number;
 }
 
-const ORBIT_RATIO = 0.08; // Small orbit ratio makes spheres overlap and clump ("attached")
+const ORBIT_RATIO = 0.08;
 
-function SingleOrb({
-  color,
-  dark,
-  r,
-  owner,
-  uniqueId,
-}: {
-  color: string;
-  dark: string;
-  r: number;
-  owner: Player;
-  uniqueId: string;
-}) {
+// ─── Single pulsing orb ──────────────────────────────────────
+function SingleOrb({ color, dark, r }: { color: string; dark: string; r: number }) {
   const pulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     const anim = Animated.loop(
       Animated.sequence([
         Animated.timing(pulse, {
-          toValue: 1.05,
-          duration: 950,
+          toValue: 1.07,
+          duration: 900,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
         Animated.timing(pulse, {
           toValue: 1,
-          duration: 950,
+          duration: 900,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
@@ -54,55 +44,56 @@ function SingleOrb({
   }, [pulse]);
 
   const d = r * 2;
-  const gradientId = `g_single_${owner}_${uniqueId}`;
 
   return (
     <Animated.View
-      style={[{
+      style={{
         width: d,
         height: d,
         borderRadius: r,
         overflow: 'hidden',
-        transform: [{ scale: pulse }]
-      }]}
+        transform: [{ scale: pulse }],
+        elevation: 5,
+      }}
     >
-      <Svg width={d} height={d} viewBox={`0 0 ${d} ${d}`} style={{ width: d, height: d }}>
-        <Defs>
-          {/* Fully bright 3D gradient with no muddy grey/black stops */}
-          <RadialGradient id={gradientId} cx="30%" cy="30%" r="70%">
-            <Stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
-            <Stop offset="25%" stopColor={color} stopOpacity="1" />
-            <Stop offset="80%" stopColor={dark} stopOpacity="1" />
-            <Stop offset="100%" stopColor={dark} stopOpacity="1" />
-          </RadialGradient>
-        </Defs>
-        <Circle cx={r} cy={r} r={r - 0.5} fill={`url(#${gradientId})`} />
-      </Svg>
+      {/* 3D sphere gradient: white highlight → player color → dark edge */}
+      <LinearGradient
+        colors={['#ffffff', color, dark]}
+        start={{ x: 0.15, y: 0.08 }}
+        end={{ x: 0.9, y: 0.95 }}
+        style={{ width: d, height: d, borderRadius: r }}
+      />
+      {/* Inner specular highlight for glass-ball look */}
+      <View
+        style={{
+          position: 'absolute',
+          width: r * 0.42,
+          height: r * 0.42,
+          borderRadius: r * 0.21,
+          backgroundColor: 'rgba(255,255,255,0.6)',
+          top: r * 0.18,
+          left: r * 0.2,
+        }}
+      />
     </Animated.View>
   );
 }
 
+// ─── Orbiting sphere dot ─────────────────────────────────────
 function OrbDot({
   color,
   dark,
   r,
   x,
   y,
-  id,
-  owner,
-  uniqueId,
 }: {
   color: string;
   dark: string;
   r: number;
   x: number;
   y: number;
-  id: string | number;
-  owner: Player;
-  uniqueId: string;
 }) {
   const d = r * 2;
-  const gradientId = `g_orbit_${uniqueId}_${id}_${owner}`;
   return (
     <View
       style={{
@@ -113,37 +104,42 @@ function OrbDot({
         height: d,
         borderRadius: r,
         overflow: 'hidden',
+        elevation: 4,
       }}
     >
-      <Svg width={d} height={d} viewBox={`0 0 ${d} ${d}`} style={{ width: d, height: d }}>
-        <Defs>
-          {/* Fully bright 3D gradient with no muddy grey/black stops */}
-          <RadialGradient id={gradientId} cx="30%" cy="30%" r="70%">
-            <Stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
-            <Stop offset="25%" stopColor={color} stopOpacity="1" />
-            <Stop offset="80%" stopColor={dark} stopOpacity="1" />
-            <Stop offset="100%" stopColor={dark} stopOpacity="1" />
-          </RadialGradient>
-        </Defs>
-        <Circle cx={r} cy={r} r={r - 0.5} fill={`url(#${gradientId})`} />
-      </Svg>
+      <LinearGradient
+        colors={['#ffffff', color, dark]}
+        start={{ x: 0.15, y: 0.08 }}
+        end={{ x: 0.9, y: 0.95 }}
+        style={{ width: d, height: d, borderRadius: r }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          width: r * 0.38,
+          height: r * 0.38,
+          borderRadius: r * 0.19,
+          backgroundColor: 'rgba(255,255,255,0.55)',
+          top: r * 0.16,
+          left: r * 0.18,
+        }}
+      />
     </View>
   );
 }
 
+// ─── Layout for a given count + owner ────────────────────────
 interface OrbLayoutProps {
   count: number;
   owner: Player;
   size: number;
   spinValue: Animated.Value;
-  uniqueId: string;
 }
 
-function OrbLayout({ count, owner, size, spinValue, uniqueId }: OrbLayoutProps) {
+function OrbLayout({ count, owner, size, spinValue }: OrbLayoutProps) {
   const { primary: color, dark } = PLAYER_COLORS[owner];
   const r = Math.floor(size * 0.26);
   const orbit = Math.floor(size * ORBIT_RATIO);
-
   const cx = size / 2;
   const cy = size / 2;
 
@@ -155,36 +151,49 @@ function OrbLayout({ count, owner, size, spinValue, uniqueId }: OrbLayoutProps) 
   if (count <= 0) return null;
 
   return (
-    <View style={[styles.container, { width: size, height: size, aspectRatio: 1, alignSelf: 'center' }]}>
-      {count === 1 && <SingleOrb color={color} dark={dark} r={r} owner={owner} uniqueId={uniqueId} />}
+    <View style={[styles.container, { width: size, height: size }]}>
+      {count === 1 && <SingleOrb color={color} dark={dark} r={r} />}
 
       {count === 2 && (
-        <Animated.View style={{ width: size, height: size, aspectRatio: 1, alignSelf: 'center', transform: [{ rotate: spin }] }}>
-          <OrbDot color={color} dark={dark} r={r} x={cx + orbit - r} y={cy - r} id={1} owner={owner} uniqueId={uniqueId} />
-          <OrbDot color={color} dark={dark} r={r} x={cx - orbit - r} y={cy - r} id={2} owner={owner} uniqueId={uniqueId} />
+        <Animated.View
+          style={{
+            width: size,
+            height: size,
+            alignSelf: 'center',
+            transform: [{ rotate: spin }],
+          }}
+        >
+          <OrbDot color={color} dark={dark} r={r} x={cx + orbit - r} y={cy - r} />
+          <OrbDot color={color} dark={dark} r={r} x={cx - orbit - r} y={cy - r} />
         </Animated.View>
       )}
 
       {count >= 3 && (
-        <Animated.View style={{ width: size, height: size, aspectRatio: 1, alignSelf: 'center', transform: [{ rotate: spin }] }}>
-          <OrbDot color={color} dark={dark} r={r} x={cx + orbit - r} y={cy - r} id={1} owner={owner} uniqueId={uniqueId} />
-          <OrbDot color={color} dark={dark} r={r} x={cx - 0.5 * orbit - r} y={cy + 0.866 * orbit - r} id={2} owner={owner} uniqueId={uniqueId} />
-          <OrbDot color={color} dark={dark} r={r} x={cx - 0.5 * orbit - r} y={cy - 0.866 * orbit - r} id={3} owner={owner} uniqueId={uniqueId} />
+        <Animated.View
+          style={{
+            width: size,
+            height: size,
+            alignSelf: 'center',
+            transform: [{ rotate: spin }],
+          }}
+        >
+          <OrbDot color={color} dark={dark} r={r} x={cx + orbit - r} y={cy - r} />
+          <OrbDot color={color} dark={dark} r={r} x={cx - 0.5 * orbit - r} y={cy + 0.866 * orbit - r} />
+          <OrbDot color={color} dark={dark} r={r} x={cx - 0.5 * orbit - r} y={cy - 0.866 * orbit - r} />
         </Animated.View>
       )}
     </View>
   );
 }
 
+// ─── Main Orb component with crossfade on owner change ───────
 export default function Orb({ count, owner, size }: OrbProps) {
-  const uniqueId = useRef(Math.random().toString(36).substring(2, 9)).current;
   const [activeOwner, setActiveOwner] = useState<Player>(owner);
   const [prevOwner, setPrevOwner] = useState<Player | null>(null);
-  
   const transitionVal = useRef(new Animated.Value(1)).current;
   const spinValue = useRef(new Animated.Value(0)).current;
 
-  // Spin rotation loop for count > 1
+  // Spin loop for 2+ orb counts
   useEffect(() => {
     if (count > 1) {
       const anim = Animated.loop(
@@ -200,7 +209,7 @@ export default function Orb({ count, owner, size }: OrbProps) {
     }
   }, [count, spinValue]);
 
-  // Handle color morph transition when owner changes (takes time, e.g. 400ms fading)
+  // Crossfade color transition on owner change
   useEffect(() => {
     if (owner !== activeOwner) {
       setPrevOwner(activeOwner);
@@ -209,18 +218,16 @@ export default function Orb({ count, owner, size }: OrbProps) {
 
       Animated.timing(transitionVal, {
         toValue: 1,
-        duration: 400,
+        duration: 380,
         easing: Easing.out(Easing.quad),
         useNativeDriver: true,
-      }).start(() => {
-        setPrevOwner(null);
-      });
+      }).start(() => setPrevOwner(null));
     }
   }, [owner, activeOwner]);
 
   const scale = transitionVal.interpolate({
     inputRange: [0, 0.5, 1],
-    outputRange: [1, 1.12, 1], // Subtle swell/settle transition
+    outputRange: [1, 1.1, 1],
   });
 
   return (
@@ -233,14 +240,11 @@ export default function Orb({ count, owner, size }: OrbProps) {
               position: 'absolute',
               width: size,
               height: size,
-              opacity: transitionVal.interpolate({
-                inputRange: [0, 1],
-                outputRange: [1, 0],
-              }),
+              opacity: transitionVal.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
               transform: [{ scale }],
             }}
           >
-            <OrbLayout count={count} owner={prevOwner} size={size} spinValue={spinValue} uniqueId={uniqueId} />
+            <OrbLayout count={count} owner={prevOwner} size={size} spinValue={spinValue} />
           </Animated.View>
 
           {/* Current owner fading in */}
@@ -249,20 +253,17 @@ export default function Orb({ count, owner, size }: OrbProps) {
               position: 'absolute',
               width: size,
               height: size,
-              opacity: transitionVal.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, 1],
-              }),
+              opacity: transitionVal.interpolate({ inputRange: [0, 1], outputRange: [0, 1] }),
               transform: [{ scale }],
             }}
           >
-            <OrbLayout count={count} owner={activeOwner} size={size} spinValue={spinValue} uniqueId={uniqueId} />
+            <OrbLayout count={count} owner={activeOwner} size={size} spinValue={spinValue} />
           </Animated.View>
         </>
       ) : (
-        /* Static stable state rendering */
+        /* Stable render — no transition */
         <Animated.View style={{ width: size, height: size }}>
-          <OrbLayout count={count} owner={activeOwner} size={size} spinValue={spinValue} uniqueId={uniqueId} />
+          <OrbLayout count={count} owner={activeOwner} size={size} spinValue={spinValue} />
         </Animated.View>
       )}
     </View>

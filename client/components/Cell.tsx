@@ -22,7 +22,7 @@ interface CellProps {
   maxCols: number;
 }
 
-export default function Cell({
+function CellComponent({
   row,
   col,
   data,
@@ -79,6 +79,17 @@ export default function Cell({
     </TouchableOpacity>
   );
 }
+
+// Memoized to prevent re-render of cells that haven't changed
+export default React.memo(CellComponent, (prev, next) => {
+  return (
+    prev.data.count === next.data.count &&
+    prev.data.owner === next.data.owner &&
+    prev.isMyTurn === next.isMyTurn &&
+    prev.cellWidth === next.cellWidth &&
+    prev.cellHeight === next.cellHeight
+  );
+});
 
 const styles = StyleSheet.create({
   touch: {

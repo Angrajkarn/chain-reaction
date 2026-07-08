@@ -1,16 +1,17 @@
 // ============================================================
-// Explosion — Chain reaction traveling orbit animations
+// Explosion — Chain reaction traveling orb animations
+// Uses LinearGradient instead of SVG to prevent gradient ID issues
 // ============================================================
 
 import React, { useEffect, useRef } from 'react';
 import { StyleSheet, View, Animated, Easing } from 'react-native';
-import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import { PLAYER_COLORS } from '../constants/colors';
 import { Player } from '../types';
 import { useSound } from '../hooks/useSound';
 
 interface ExplosionProps {
-  id: string; // Unique ID to isolate SVG RadialGradients from color bleeding collisions
+  id: string;
   player: Player;
   row: number;
   col: number;
@@ -22,7 +23,6 @@ interface ExplosionProps {
 }
 
 function TravelingOrb({
-  explosionId,
   color,
   dark,
   size,
@@ -30,7 +30,6 @@ function TravelingOrb({
   dy,
   progress,
 }: {
-  explosionId: string;
   color: string;
   dark: string;
   size: number;
@@ -38,20 +37,11 @@ function TravelingOrb({
   dy: number;
   progress: Animated.Value;
 }) {
-  const translateX = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, dx],
-  });
+  const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, dx] });
+  const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, dy] });
 
-  const translateY = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, dy],
-  });
-
-  // Radius matches the static orb exactly (diameter ~52% of cell size) to prevent size deviations
   const r = Math.floor(size * 0.26);
   const d = r * 2;
-  const gradId = `g_travel_${explosionId}_${dx}_${dy}`;
 
   return (
     <Animated.View
@@ -62,20 +52,27 @@ function TravelingOrb({
         borderRadius: r,
         overflow: 'hidden',
         transform: [{ translateX }, { translateY }],
+        elevation: 6,
       }}
     >
-      <Svg width={d} height={d} viewBox={`0 0 ${d} ${d}`} style={{ width: d, height: d }}>
-        <Defs>
-          {/* Fully bright 3D gradient matching static orbs without black edge shading */}
-          <RadialGradient id={gradId} cx="30%" cy="30%" r="70%">
-            <Stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
-            <Stop offset="25%" stopColor={color} stopOpacity="1" />
-            <Stop offset="80%" stopColor={dark} stopOpacity="1" />
-            <Stop offset="100%" stopColor={dark} stopOpacity="1" />
-          </RadialGradient>
-        </Defs>
-        <Circle cx={r} cy={r} r={r - 0.5} fill={`url(#${gradId})`} />
-      </Svg>
+      <LinearGradient
+        colors={['#ffffff', color, dark]}
+        start={{ x: 0.15, y: 0.08 }}
+        end={{ x: 0.9, y: 0.95 }}
+        style={{ width: d, height: d, borderRadius: r }}
+      />
+      {/* Specular highlight */}
+      <View
+        style={{
+          position: 'absolute',
+          width: r * 0.38,
+          height: r * 0.38,
+          borderRadius: r * 0.19,
+          backgroundColor: 'rgba(255,255,255,0.55)',
+          top: r * 0.16,
+          left: r * 0.18,
+        }}
+      />
     </Animated.View>
   );
 }
@@ -102,23 +99,22 @@ export default function Explosion({
     playExplosion();
     const finishedRef = { value: false };
 
-    // Snappier animation speed (320ms) for high-performance responsive feeling
     Animated.parallel([
       Animated.timing(progress, {
         toValue: 1,
-        duration: 320,
+        duration: 310,
         easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }),
       Animated.timing(ringScale, {
-        toValue: 2.2,
+        toValue: 2.3,
         duration: 260,
         easing: Easing.out(Easing.ease),
         useNativeDriver: true,
       }),
       Animated.timing(ringOpacity, {
         toValue: 0,
-        duration: 300,
+        duration: 290,
         easing: Easing.out(Easing.ease),
         useNativeDriver: true,
       }),
@@ -129,22 +125,21 @@ export default function Explosion({
       }
     });
 
-    // Safety: if component unmounts before animation finishes (fast chain),
+    // Safety: if component unmounts before animation completes (fast chains),
     // force-call onComplete to prevent cascade from freezing.
     return () => {
       if (!finishedRef.value) {
         onComplete();
       }
     };
-  }, [progress, ringScale, ringOpacity]);
+  }, []);
 
   const size = Math.min(cellWidth, cellHeight);
 
-  // Check dynamic grid boundaries
-  const hasTop = row > 0;
+  const hasTop    = row > 0;
   const hasBottom = row < maxRows - 1;
-  const hasLeft = col > 0;
-  const hasRight = col < maxCols - 1;
+  const hasLeft   = col > 0;
+  const hasRight  = col < maxCols - 1;
 
   return (
     <View style={[styles.container, StyleSheet.absoluteFillObject]}>
@@ -164,50 +159,18 @@ export default function Explosion({
         ]}
       />
 
-      {/* Traveling spheres going to valid adjacent cells */}
+      {/* Traveling spheres going to adjacent cells */}
       {hasTop && (
-        <TravelingOrb
-          explosionId={id}
-          color={color}
-          dark={dark}
-          size={size}
-          dx={0}
-          dy={-cellHeight}
-          progress={progress}
-        />
+        <TravelingOrb color={color} dark={dark} size={size} dx={0} dy={-cellHeight} progress={progress} />
       )}
       {hasBottom && (
-        <TravelingOrb
-          explosionId={id}
-          color={color}
-          dark={dark}
-          size={size}
-          dx={0}
-          dy={cellHeight}
-          progress={progress}
-        />
+        <TravelingOrb color={color} dark={dark} size={size} dx={0} dy={cellHeight} progress={progress} />
       )}
       {hasLeft && (
-        <TravelingOrb
-          explosionId={id}
-          color={color}
-          dark={dark}
-          size={size}
-          dx={-cellWidth}
-          dy={0}
-          progress={progress}
-        />
+        <TravelingOrb color={color} dark={dark} size={size} dx={-cellWidth} dy={0} progress={progress} />
       )}
       {hasRight && (
-        <TravelingOrb
-          explosionId={id}
-          color={color}
-          dark={dark}
-          size={size}
-          dx={cellWidth}
-          dy={0}
-          progress={progress}
-        />
+        <TravelingOrb color={color} dark={dark} size={size} dx={cellWidth} dy={0} progress={progress} />
       )}
     </View>
   );
@@ -223,7 +186,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     borderWidth: 2,
     shadowOpacity: 1,
-    shadowRadius: 12,
+    shadowRadius: 14,
     shadowOffset: { width: 0, height: 0 },
   },
 });

@@ -25,6 +25,11 @@ import {
 export function registerSocketHandlers(io: Server, socket: Socket): void {
   console.log(`[Socket] Connected: ${socket.id}`);
 
+  // ─── Per-socket move rate limiter ─────────────────────────
+  // Prevents move spam — min 150ms between accepted moves per player
+  let lastMoveTime = 0;
+  const MOVE_RATE_LIMIT_MS = 150;
+
   // ─────────────────────────────────────────────
   // CREATE ROOM
   // ─────────────────────────────────────────────
@@ -164,6 +169,14 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   // ─────────────────────────────────────────────
   socket.on('move', ({ roomCode, row, col }: MovePayload) => {
     try {
+      // ── Rate limit: reject moves fired too quickly ──────────
+      const now = Date.now();
+      if (now - lastMoveTime < MOVE_RATE_LIMIT_MS) {
+        socket.emit('error', { message: 'Slow down! One move at a time.' });
+        return;
+      }
+      lastMoveTime = now;
+
       const room = getRoom(roomCode);
       if (!room) { socket.emit('error', { message: 'Room not found.' }); return; }
 
@@ -182,6 +195,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
 
       updateRoomBoard(roomCode, newBoard, nextTurn, newTurnCount, winner);
 
+      // Emit board update and turn change atomically
       io.to(roomCode).emit('board-update', {
         board: newBoard,
         currentTurn: nextTurn,
@@ -196,7 +210,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
           winner,
           winnerName: winnerPlayer?.name ?? `Player ${winner}`,
         });
-        console.log(`[Game] Winner in room ${roomCode}: Player ${winner}`);
+        console.log(`[Game] Winner in room ${roomCode}: Player ${winner} (${winnerPlayer?.name})`);
       }
     } catch (err) {
       console.error('[move] Error:', err);
