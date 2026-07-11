@@ -92,6 +92,12 @@ export default function HomeScreen() {
             style={styles.menuBtn}
           />
           <Button
+            label="🤖  Play with AI"
+            onPress={() => router.push('/ai-difficulty')}
+            variant="secondary"
+            style={styles.menuBtn}
+          />
+          <Button
             label="📖  How to Play"
             onPress={() => router.push('/how-to-play')}
             variant="ghost"
