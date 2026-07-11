@@ -106,9 +106,13 @@ export default function GameScreen() {
     setBoard(nextBoard);
 
     if (nextExplosions.length > 0) {
-      onlineStepRef.current = nextExplosions;
-      onlineStepIdsRef.current = new Set(nextExplosions.map((e) => e.id));
+      // Add to store first — addExplosion generates its own IDs
       nextExplosions.forEach((e) => addExplosion(e.row, e.col, e.player));
+      // Read the actual IDs back from the store so our tracking matches
+      const latest = useGameStore.getState().explosions;
+      const addedBatch = latest.slice(latest.length - nextExplosions.length);
+      onlineStepRef.current = addedBatch;
+      onlineStepIdsRef.current = new Set(addedBatch.map((e) => e.id));
     } else {
       // Cascade finished — sync to server-authoritative final board
       const pending = useGameStore.getState().pendingOnlineBoard;
