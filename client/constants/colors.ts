@@ -8,13 +8,13 @@ export const COLORS = {
   bgCard: 'rgba(255, 255, 255, 0.04)',
   bgCardBorder: 'rgba(255, 255, 255, 0.10)',
 
-  // Player colors (Client specified #ff4b2b and matching green)
-  player1: '#ff4b2b',       // Elegant orangey Red
-  player1Glow: '#ff4b2b80',
-  player1Dark: '#7a1a09',
-  player2: '#00ff3d',       // Vibrant neon Green
-  player2Glow: '#00ff3d80',
-  player2Dark: '#005c0f',
+  // Player colors — classic Chain Reaction glossy sphere palette
+  player1: '#FF2D55',       // Classic bright glowing Red
+  player1Glow: '#FF5A7A80',
+  player1Dark: '#8B0A2A',
+  player2: '#32D74B',       // Classic bright glowing Green
+  player2Glow: '#6BFF8A80',
+  player2Dark: '#0A5C1E',
 
   // Neon accents
   neonBlue: '#00D4FF',
