@@ -103,24 +103,41 @@ export default function GameScreen() {
       }
     }
 
-    setBoard(nextBoard);
-
     if (nextExplosions.length > 0) {
-      // Add to store first — addExplosion generates its own IDs
-      nextExplosions.forEach((e) => addExplosion(e.row, e.col, e.player));
-      // Read the actual IDs back from the store so our tracking matches
-      const latest = useGameStore.getState().explosions;
-      const addedBatch = latest.slice(latest.length - nextExplosions.length);
-      onlineStepRef.current = addedBatch;
-      onlineStepIdsRef.current = new Set(addedBatch.map((e) => e.id));
+      const newExplosionEvents = nextExplosions.map((e) => ({
+        row: e.row,
+        col: e.col,
+        player: e.player,
+        id: randomId(),
+      }));
+
+      // Atomic batch update to prevent rendering flashes and components resetting/blinking
+      useGameStore.setState((state) => ({
+        board: nextBoard,
+        explosions: [...state.explosions, ...newExplosionEvents],
+      }));
+
+      onlineStepRef.current = newExplosionEvents;
+      onlineStepIdsRef.current = new Set(newExplosionEvents.map((e) => e.id));
     } else {
       // Cascade finished — sync to server-authoritative final board
       const pending = useGameStore.getState().pendingOnlineBoard;
       if (pending) {
-        setBoard(pending.board);
-        setStoreTurn(pending.currentTurn);
-        setStoreTurnCount(pending.turnCount);
-        setPendingOnlineBoard(null);
+        // Retrieve and process deferred game over if it arrived during the active cascade
+        const pendingOver = useGameStore.getState().pendingOnlineGameOver;
+
+        useGameStore.setState({
+          board: pending.board,
+          currentTurn: pending.currentTurn,
+          turnCount: pending.turnCount,
+          pendingOnlineBoard: null,
+          ...(pendingOver ? {
+            gameOver: true,
+            winner: pendingOver.winner,
+            winnerName: pendingOver.winnerName,
+            pendingOnlineGameOver: null,
+          } : {}),
+        });
       }
     }
   }, [setBoard, setStoreTurn, setStoreTurnCount, addExplosion, setPendingOnlineBoard]);

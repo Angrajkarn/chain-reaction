@@ -46,6 +46,7 @@ interface GameState {
   // Online cascade — stores server final board until local animation finishes
   pendingOnlineBoard: { board: BoardState; currentTurn: Player; turnCount: number } | null;
   setPendingOnlineBoard: (s: { board: BoardState; currentTurn: Player; turnCount: number } | null) => void;
+  pendingOnlineGameOver: { winner: Player | null; winnerName: string | null } | null;
 
   // Actions
   setRoomCode: (code: string) => void;
@@ -89,6 +90,7 @@ export const useGameStore = create<GameState>((set) => ({
   toastMessage: null,
   movePending: false,
   pendingOnlineBoard: null,
+  pendingOnlineGameOver: null,
 
   setRoomCode: (code) => set({ roomCode: code }),
   setMyPlayerNumber: (num) => set({ myPlayerNumber: num }),
@@ -130,6 +132,8 @@ export const useGameStore = create<GameState>((set) => ({
       myRequestedRestart: false,
       toastMessage: null,
       movePending: false,
+      pendingOnlineBoard: null,
+      pendingOnlineGameOver: null,
     }),
 
   fullReset: () =>
@@ -151,5 +155,7 @@ export const useGameStore = create<GameState>((set) => ({
       myRequestedRestart: false,
       toastMessage: null,
       movePending: false,
+      pendingOnlineBoard: null,
+      pendingOnlineGameOver: null,
     }),
 }));

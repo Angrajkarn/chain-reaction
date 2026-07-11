@@ -244,25 +244,25 @@ export default function LocalGameScreen() {
           }
         }
 
-        // 3. Chain reaction state routing — check winner after EVERY step
-        const { currentTurn: turn, turnCount: count } = stateRef.current;
-        const nextTurnCount = count + 1;
-        const midCascadeWinner = checkWinner(nextBoard, nextTurnCount);
-
-        if (midCascadeWinner !== null) {
-          // A player's atoms hit 0 — stop cascade immediately and declare winner
-          triggerStepExplosions([]);
-          setWinner(midCascadeWinner);
-          setGameOver(true);
-          commitTurnState(nextBoard, midCascadeWinner, nextTurnCount);
-        } else if (nextExplosions.length > 0) {
+        // 3. Chain reaction state routing
+        if (nextExplosions.length > 0) {
           // Continue cascade
           triggerStepExplosions(nextExplosions);
         } else {
-          // Cascade finished normally — toggle player
+          // Finished cascade! Increment turn count and toggle player!
+          const { currentTurn: turn, turnCount: count } = stateRef.current;
+          const nextTurnCount = count + 1;
           const nextTurn: Player = turn === 1 ? 2 : 1;
+
           setTurnCount(nextTurnCount);
           setCurrentTurn(nextTurn);
+
+          const gameWinner = checkWinner(nextBoard, nextTurnCount);
+          if (gameWinner !== null) {
+            setWinner(gameWinner);
+            setGameOver(true);
+          }
+
           commitTurnState(nextBoard, nextTurn, nextTurnCount);
         }
 

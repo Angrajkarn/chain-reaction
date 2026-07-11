@@ -18,6 +18,7 @@ import {
 } from '../types';
 import { useSound } from './useSound';
 import { getCriticalMass } from '../utils/gameEngine';
+import { randomId } from '../utils/helpers';
 
 export function useSocket(bindListeners = false) {
   const router = useRouter();
@@ -101,18 +102,23 @@ export function useSocket(bindListeners = false) {
             const stepBoard = currentBoard.map((r) => r.map((c) => ({ ...c })));
             stepBoard[row][col].count = prevCellCount + 1 - critMass;
             stepBoard[row][col].owner = stepBoard[row][col].count === 0 ? null : (player as Player);
-            setBoard(stepBoard);
-            // Store server’s final board for sync after animations finish
-            setPendingOnlineBoard({ board: newBoard, currentTurn, turnCount });
-            addExplosion(row, col, player as Player);
-            return; // Board will be synced by game.tsx cascade engine
+            
+            // Atomic batch update to prevent blinking (no frame gap between board write and explosion mount)
+            useGameStore.setState((state) => ({
+              board: stepBoard,
+              pendingOnlineBoard: { board: newBoard, currentTurn, turnCount },
+              explosions: [...state.explosions, { row, col, player: player as Player, id: randomId() }],
+            }));
+            return;
           }
         }
       }
       // No cascade — set final board immediately
-      setBoard(newBoard);
-      setCurrentTurn(currentTurn);
-      setTurnCount(turnCount);
+      useGameStore.setState({
+        board: newBoard,
+        currentTurn,
+        turnCount,
+      });
     };
 
     const onTurnChange = ({ currentTurn }: { currentTurn: Player }) => {
@@ -120,7 +126,14 @@ export function useSocket(bindListeners = false) {
     };
 
     const onGameOver = ({ winner, winnerName }: GameOverPayload) => {
-      setGameOver(true, winner, winnerName);
+      const isCascadeActive = useGameStore.getState().pendingOnlineBoard !== null;
+      if (isCascadeActive) {
+        useGameStore.setState({
+          pendingOnlineGameOver: { winner, winnerName },
+        });
+      } else {
+        setGameOver(true, winner, winnerName);
+      }
     };
 
     const onGameRestarted = ({ board, currentTurn, players }: GameRestartedPayload) => {
