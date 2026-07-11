@@ -2,7 +2,7 @@
 // AI Difficulty — Defines the three difficulty levels
 // ============================================================
 
-export type AIDifficulty = 'easy' | 'medium' | 'hard';
+export type AIDifficulty = 'easy' | 'medium' | 'hard' | 'impossible';
 
 export interface DifficultyConfig {
   label: string;
@@ -20,7 +20,7 @@ export const DIFFICULTY_CONFIGS: Record<AIDifficulty, DifficultyConfig> = {
     description: 'Random moves with obvious mistakes. Good for beginners.',
     minDelayMs: 700,
     maxDelayMs: 1200,
-    minimaxDepth: 0, // not used — pure random
+    minimaxDepth: 0,
   },
   medium: {
     label: 'Medium',
@@ -37,5 +37,13 @@ export const DIFFICULTY_CONFIGS: Record<AIDifficulty, DifficultyConfig> = {
     minDelayMs: 300,
     maxDelayMs: 600,
     minimaxDepth: 4,
+  },
+  impossible: {
+    label: 'Impossible',
+    emoji: '💀',
+    description: 'AlphaZero-style self-play neural evaluation. Deep path lookahead.',
+    minDelayMs: 200,
+    maxDelayMs: 400,
+    minimaxDepth: 5,
   },
 };
