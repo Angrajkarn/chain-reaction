@@ -36,6 +36,7 @@ export function useSocket(bindListeners = false) {
     setReconnecting,
     setToastMessage,
     setMovePending,
+    setPendingOnlineBoard,
     resetForNewGame,
     fullReset,
     roomCode,
@@ -83,27 +84,35 @@ export function useSocket(bindListeners = false) {
 
     const onBoardUpdate = ({ board: newBoard, currentTurn, turnCount, lastMove }: BoardUpdatePayload) => {
       const currentBoard = useGameStore.getState().board;
-      // Read myPlayerNumber fresh from store (not stale closure)
       const freshPlayerNumber = useGameStore.getState().myPlayerNumber;
       setMovePending(false);
-      setBoard(newBoard);
-      setCurrentTurn(currentTurn);
-      setTurnCount(turnCount);
       if (lastMove) {
         const { row, col, player } = lastMove;
         const rows = currentBoard.length;
         const cols = currentBoard[0]?.length || 6;
+        if (player !== freshPlayerNumber) {
+          playTap(player as Player);
+        }
         if (row >= 0 && row < rows && col >= 0 && col < cols) {
           const prevCellCount = currentBoard[row][col]?.count || 0;
           const critMass = getCriticalMass(row, col, rows, cols);
           if (prevCellCount + 1 >= critMass) {
+            // Cascade — apply step-0 board (orb placed + source cell decremented)
+            const stepBoard = currentBoard.map((r) => r.map((c) => ({ ...c })));
+            stepBoard[row][col].count = prevCellCount + 1 - critMass;
+            stepBoard[row][col].owner = stepBoard[row][col].count === 0 ? null : (player as Player);
+            setBoard(stepBoard);
+            // Store server’s final board for sync after animations finish
+            setPendingOnlineBoard({ board: newBoard, currentTurn, turnCount });
             addExplosion(row, col, player as Player);
+            return; // Board will be synced by game.tsx cascade engine
           }
         }
-        if (player !== freshPlayerNumber) {
-          playTap(player as Player);
-        }
       }
+      // No cascade — set final board immediately
+      setBoard(newBoard);
+      setCurrentTurn(currentTurn);
+      setTurnCount(turnCount);
     };
 
     const onTurnChange = ({ currentTurn }: { currentTurn: Player }) => {

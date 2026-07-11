@@ -26,7 +26,9 @@ import GlassCard from '../components/GlassCard';
 import Header from '../components/Header';
 import SettingsModal from '../components/SettingsModal';
 import { getSocket, disconnectSocket } from '../services/socket';
-import { Player } from '../types';
+import { Player, ExplosionEvent } from '../types';
+import { getAdjacentCells, getCriticalMass } from '../utils/gameEngine';
+import { randomId } from '../utils/helpers';
 
 export default function GameScreen() {
   const router = useRouter();
@@ -49,6 +51,13 @@ export default function GameScreen() {
     isReconnecting,
     toastMessage,
     setToastMessage,
+    explosions,
+    setBoard,
+    setCurrentTurn: setStoreTurn,
+    setTurnCount: setStoreTurnCount,
+    addExplosion,
+    pendingOnlineBoard,
+    setPendingOnlineBoard,
   } = useGameStore();
 
   const {
@@ -60,6 +69,89 @@ export default function GameScreen() {
 
   const [opponentLeftVisible, setOpponentLeftVisible] = useState(false);
   const [opponentLeftName, setOpponentLeftName] = useState('');
+
+  // ── Online Cascade Animation Engine ───────────────────────────
+  // Mirrors offline resolveExplosionSplits so the remote player
+  // sees orb movement step-by-step instead of instant board jump.
+  const onlineStepRef = useRef<ExplosionEvent[]>([]);
+  const onlineStepIdsRef = useRef<Set<string>>(new Set());
+
+  const resolveOnlineStep = useCallback((completedList: ExplosionEvent[]) => {
+    const currentBoard = useGameStore.getState().board;
+    const rows = currentBoard.length;
+    const cols = currentBoard[0]?.length || 6;
+    let nextBoard = currentBoard.map((r) => r.map((c) => ({ ...c })));
+    const nextExplosions: ExplosionEvent[] = [];
+
+    // Distribute orbs from completed explosions to neighbors
+    completedList.forEach((exp) => {
+      getAdjacentCells(exp.row, exp.col, rows, cols).forEach(([nr, nc]) => {
+        nextBoard[nr][nc].count += 1;
+        nextBoard[nr][nc].owner = exp.player;
+      });
+    });
+
+    // Find cells that hit critical mass
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const critMass = getCriticalMass(r, c, rows, cols);
+        if (nextBoard[r][c].count >= critMass) {
+          nextBoard[r][c].count -= critMass;
+          if (nextBoard[r][c].count === 0) nextBoard[r][c].owner = null;
+          nextExplosions.push({ row: r, col: c, player: completedList[0].player, id: randomId() });
+        }
+      }
+    }
+
+    setBoard(nextBoard);
+
+    if (nextExplosions.length > 0) {
+      onlineStepRef.current = nextExplosions;
+      onlineStepIdsRef.current = new Set(nextExplosions.map((e) => e.id));
+      nextExplosions.forEach((e) => addExplosion(e.row, e.col, e.player));
+    } else {
+      // Cascade finished — sync to server-authoritative final board
+      const pending = useGameStore.getState().pendingOnlineBoard;
+      if (pending) {
+        setBoard(pending.board);
+        setStoreTurn(pending.currentTurn);
+        setStoreTurnCount(pending.turnCount);
+        setPendingOnlineBoard(null);
+      }
+    }
+  }, [setBoard, setStoreTurn, setStoreTurnCount, addExplosion, setPendingOnlineBoard]);
+
+  // Register initial explosion batch when cascade starts
+  useEffect(() => {
+    if (pendingOnlineBoard !== null && explosions.length > 0 && onlineStepIdsRef.current.size === 0) {
+      onlineStepRef.current = [...explosions];
+      onlineStepIdsRef.current = new Set(explosions.map((e) => e.id));
+    }
+  }, [pendingOnlineBoard, explosions]);
+
+  // Detect when current explosion batch completes, then resolve next step
+  useEffect(() => {
+    if (onlineStepIdsRef.current.size === 0) return;
+    const remaining = explosions.filter((e) => onlineStepIdsRef.current.has(e.id));
+    if (remaining.length === 0) {
+      const completedStep = [...onlineStepRef.current];
+      onlineStepRef.current = [];
+      onlineStepIdsRef.current = new Set();
+      setTimeout(() => resolveOnlineStep(completedStep), 10);
+    }
+  }, [explosions, resolveOnlineStep]);
+
+  // Abort cascade if server declares game over before animations finish
+  useEffect(() => {
+    if (gameOver) {
+      onlineStepRef.current = [];
+      onlineStepIdsRef.current = new Set();
+      if (useGameStore.getState().pendingOnlineBoard !== null) {
+        setPendingOnlineBoard(null);
+      }
+    }
+  }, [gameOver, setPendingOnlineBoard]);
+  // ── End Online Cascade Engine ──────────────────────────────────
 
   // Intercept iOS swipe-back and Expo navigation back gesture → open pause menu
   useEffect(() => {
