@@ -29,6 +29,15 @@ export function useGame() {
 
   const handleCellPress = useCallback(
     (row: number, col: number) => {
+      const {
+        board,
+        gameStarted,
+        gameOver,
+        currentTurn,
+        myPlayerNumber,
+        movePending,
+      } = useGameStore.getState();
+
       if (gameOver) return;
 
       // Reject if game not started
@@ -43,6 +52,7 @@ export function useGame() {
       }
 
       // Reject if not my turn
+      const isMyTurn = myPlayerNumber === currentTurn;
       if (!isMyTurn || !myPlayerNumber) {
         setToastMessage("Not your turn yet! ⏳");
         return;
@@ -58,7 +68,7 @@ export function useGame() {
       playTap(myPlayerNumber as Player);
       makeMove(row, col);
     },
-    [board, gameStarted, gameOver, isMyTurn, myPlayerNumber, movePending, makeMove, lightTap, playTap, setToastMessage]
+    [makeMove, lightTap, playTap, setToastMessage]
   );
 
   const handleRestart = useCallback(() => {

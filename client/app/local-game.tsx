@@ -99,6 +99,10 @@ export default function LocalGameScreen() {
   // Track currently active explosions for the current cascade step
   const [activeExplosions, setActiveExplosions] = useState<ExplosionEvent[]>([]);
 
+  // Keep stateRef fresh on every render to circumvent stale closures in stable callbacks.
+  const stateRef = useRef({ board, currentTurn, turnCount, gameOver, activeExplosions, historyIndex });
+  stateRef.current = { board, currentTurn, turnCount, gameOver, activeExplosions, historyIndex };
+
   const triggerStepExplosions = useCallback((explosions: ExplosionEvent[]) => {
     currentStepExplosionsRef.current = explosions;
     setActiveExplosions(explosions);
@@ -157,12 +161,13 @@ export default function LocalGameScreen() {
   }, [gridSize, rows, cols, resetBoardWithDimensions]);
 
   const commitTurnState = useCallback((nextBoard: BoardState, nextTurn: Player, nextTurnCount: number) => {
+    const currentIndex = stateRef.current.historyIndex;
     setHistory((prev) => {
-      const sliced = prev.slice(0, historyIndex + 1);
+      const sliced = prev.slice(0, currentIndex + 1);
       return [...sliced, { board: nextBoard, currentTurn: nextTurn, turnCount: nextTurnCount }];
     });
     setHistoryIndex((prevIndex) => prevIndex + 1);
-  }, [historyIndex]);
+  }, []);
 
   const handleUndo = useCallback(() => {
     if (historyIndex <= 0 || activeExplosions.length > 0) return;
@@ -245,8 +250,9 @@ export default function LocalGameScreen() {
           triggerStepExplosions(nextExplosions);
         } else {
           // Finished cascade! Increment turn count and toggle player!
-          const nextTurnCount = turnCount + 1;
-          const nextTurn: Player = currentTurn === 1 ? 2 : 1;
+          const { currentTurn: turn, turnCount: count } = stateRef.current;
+          const nextTurnCount = count + 1;
+          const nextTurn: Player = turn === 1 ? 2 : 1;
 
           setTurnCount(nextTurnCount);
           setCurrentTurn(nextTurn);
@@ -263,7 +269,7 @@ export default function LocalGameScreen() {
         return nextBoard;
       });
     },
-    [currentTurn, turnCount, rows, cols, commitTurnState, triggerStepExplosions]
+    [rows, cols, commitTurnState, triggerStepExplosions]
   );
 
   const handleExplosionComplete = useCallback(
@@ -284,8 +290,16 @@ export default function LocalGameScreen() {
 
   const handleCellPress = useCallback(
     (row: number, col: number) => {
+      const {
+        board: currentBoard,
+        currentTurn: turn,
+        turnCount: count,
+        gameOver: isOver,
+        activeExplosions: exps,
+      } = stateRef.current;
+
       // Ignore click if game over or if there is an active cascade running
-      if (gameOver) return;
+      if (isOver) return;
 
       const now = Date.now();
       if (now - lastTapTimeRef.current < 250) {
@@ -293,23 +307,23 @@ export default function LocalGameScreen() {
       }
       lastTapTimeRef.current = now;
       
-      if (activeExplosions.length > 0) {
+      if (exps.length > 0) {
         setToastMessage("Can't place");
         return;
       }
       
-      if (!isValidMove(board, row, col, currentTurn)) {
+      if (!isValidMove(currentBoard, row, col, turn)) {
         setToastMessage("Can't place");
         return;
       }
 
       lightTap();
-      playTap(currentTurn);
+      playTap(turn);
 
       // Increment count on chosen cell
-      let nextBoard = board.map((r) => r.map((c) => ({ ...c })));
+      let nextBoard = currentBoard.map((r) => r.map((c) => ({ ...c })));
       nextBoard[row][col].count += 1;
-      nextBoard[row][col].owner = currentTurn;
+      nextBoard[row][col].owner = turn;
 
       const critMass = getCriticalMass(row, col, rows, cols);
       if (nextBoard[row][col].count >= critMass) {
@@ -325,15 +339,15 @@ export default function LocalGameScreen() {
         const initialExplosion = {
           row,
           col,
-          player: currentTurn,
+          player: turn,
           id: randomId(),
         };
         triggerStepExplosions([initialExplosion]);
       } else {
         // Safe placement, pass turn immediately
         setBoard(nextBoard);
-        const nextTurnCount = turnCount + 1;
-        const nextTurn: Player = currentTurn === 1 ? 2 : 1;
+        const nextTurnCount = count + 1;
+        const nextTurn: Player = turn === 1 ? 2 : 1;
 
         setTurnCount(nextTurnCount);
         setCurrentTurn(nextTurn);
@@ -347,7 +361,7 @@ export default function LocalGameScreen() {
         commitTurnState(nextBoard, nextTurn, nextTurnCount);
       }
     },
-    [board, currentTurn, turnCount, gameOver, activeExplosions, rows, cols, commitTurnState, lightTap, playTap, triggerStepExplosions]
+    [rows, cols, commitTurnState, lightTap, playTap, triggerStepExplosions]
   );
 
   const handlePlayAgain = () => {
