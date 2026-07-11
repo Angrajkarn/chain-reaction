@@ -207,7 +207,6 @@ export default function LocalGameScreen() {
   }, [historyIndex, history, activeExplosions.length, lightTap]);
 
   // Resolves the results of explosions once all of them in a step have completed
-  // Resolves the results of explosions once all of them in a step have completed
   const resolveExplosionSplits = useCallback(
     (completedList: ExplosionEvent[]) => {
       setBoard((currentBoard) => {
@@ -223,16 +222,6 @@ export default function LocalGameScreen() {
             nextBoard[nr][nc].owner = exp.player;
           });
         });
-
-        // Check for winner immediately mid-cascade after distributing orbs
-        const { currentTurn: turn, turnCount: count } = stateRef.current;
-        const potentialWinner = checkWinner(nextBoard, count + 1);
-        if (potentialWinner !== null) {
-          setWinner(potentialWinner);
-          setGameOver(true);
-          commitTurnState(nextBoard, turn, count + 1);
-          return nextBoard;
-        }
 
         // 2. Identify which cells have now reached critical mass
         for (let r = 0; r < rows; r++) {
@@ -255,24 +244,25 @@ export default function LocalGameScreen() {
           }
         }
 
-        // 3. Chain reaction state routing
-        if (nextExplosions.length > 0) {
-          // Trigger next sequential cascade step
+        // 3. Chain reaction state routing — check winner after EVERY step
+        const { currentTurn: turn, turnCount: count } = stateRef.current;
+        const nextTurnCount = count + 1;
+        const midCascadeWinner = checkWinner(nextBoard, nextTurnCount);
+
+        if (midCascadeWinner !== null) {
+          // A player's atoms hit 0 — stop cascade immediately and declare winner
+          triggerStepExplosions([]);
+          setWinner(midCascadeWinner);
+          setGameOver(true);
+          commitTurnState(nextBoard, midCascadeWinner, nextTurnCount);
+        } else if (nextExplosions.length > 0) {
+          // Continue cascade
           triggerStepExplosions(nextExplosions);
         } else {
-          // Finished cascade! Increment turn count and toggle player!
-          const nextTurnCount = count + 1;
+          // Cascade finished normally — toggle player
           const nextTurn: Player = turn === 1 ? 2 : 1;
-
           setTurnCount(nextTurnCount);
           setCurrentTurn(nextTurn);
-
-          const gameWinner = checkWinner(nextBoard, nextTurnCount);
-          if (gameWinner !== null) {
-            setWinner(gameWinner);
-            setGameOver(true);
-          }
-
           commitTurnState(nextBoard, nextTurn, nextTurnCount);
         }
 
@@ -343,16 +333,6 @@ export default function LocalGameScreen() {
           nextBoard[row][col].owner = null;
         }
 
-        // Check if this initial subtraction/placement triggers a win condition
-        const potentialWinner = checkWinner(nextBoard, count + 1);
-        if (potentialWinner !== null) {
-          setBoard(nextBoard);
-          setWinner(potentialWinner);
-          setGameOver(true);
-          commitTurnState(nextBoard, turn, count + 1);
-          return;
-        }
-
         setBoard(nextBoard);
 
         // Start sequential cascade steps
@@ -410,7 +390,7 @@ export default function LocalGameScreen() {
                 data={cellData}
                 cellWidth={cellWidth}
                 cellHeight={cellHeight}
-                isMyTurn={!isCascadeActive && !gameOver} // Lock cell touches if cascade is rendering or game is over
+                isMyTurn={!isCascadeActive} // Lock cell touches if cascade is rendering
                 myPlayerNumber={currentTurn}
                 onPress={handleCellPress}
                 maxRows={rows}
