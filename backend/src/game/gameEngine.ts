@@ -57,7 +57,8 @@ export function applyMove(
   board: BoardState,
   row: number,
   col: number,
-  player: Player
+  player: Player,
+  turnCount: number = 2
 ): BoardState {
   const rows = board.length;
   const cols = board[0]?.length || COLS;
@@ -98,6 +99,11 @@ export function applyMove(
       if (newBoard[nr][nc].count >= getCriticalMass(nr, nc, rows, cols)) {
         queue.push([nr, nc]);
       }
+    }
+
+    // Terminate cascade immediately if a player has won mid-cascade
+    if (checkWinner(newBoard, turnCount + 1) !== null) {
+      break;
     }
   }
 

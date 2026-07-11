@@ -188,7 +188,7 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
       const validation = isValidMove(room.board, row, col, player.playerNumber);
       if (!validation.valid) { socket.emit('error', { message: validation.reason || 'Invalid move.' }); return; }
 
-      const newBoard = applyMove(room.board, row, col, player.playerNumber as Player);
+      const newBoard = applyMove(room.board, row, col, player.playerNumber as Player, room.turnCount);
       const newTurnCount = room.turnCount + 1;
       const nextTurn: Player = room.currentTurn === 1 ? 2 : 1;
       const winner = checkWinner(newBoard, newTurnCount);

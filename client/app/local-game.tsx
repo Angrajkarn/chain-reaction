@@ -207,6 +207,7 @@ export default function LocalGameScreen() {
   }, [historyIndex, history, activeExplosions.length, lightTap]);
 
   // Resolves the results of explosions once all of them in a step have completed
+  // Resolves the results of explosions once all of them in a step have completed
   const resolveExplosionSplits = useCallback(
     (completedList: ExplosionEvent[]) => {
       setBoard((currentBoard) => {
@@ -222,6 +223,16 @@ export default function LocalGameScreen() {
             nextBoard[nr][nc].owner = exp.player;
           });
         });
+
+        // Check for winner immediately mid-cascade after distributing orbs
+        const { currentTurn: turn, turnCount: count } = stateRef.current;
+        const potentialWinner = checkWinner(nextBoard, count + 1);
+        if (potentialWinner !== null) {
+          setWinner(potentialWinner);
+          setGameOver(true);
+          commitTurnState(nextBoard, turn, count + 1);
+          return nextBoard;
+        }
 
         // 2. Identify which cells have now reached critical mass
         for (let r = 0; r < rows; r++) {
@@ -250,7 +261,6 @@ export default function LocalGameScreen() {
           triggerStepExplosions(nextExplosions);
         } else {
           // Finished cascade! Increment turn count and toggle player!
-          const { currentTurn: turn, turnCount: count } = stateRef.current;
           const nextTurnCount = count + 1;
           const nextTurn: Player = turn === 1 ? 2 : 1;
 
@@ -333,6 +343,16 @@ export default function LocalGameScreen() {
           nextBoard[row][col].owner = null;
         }
 
+        // Check if this initial subtraction/placement triggers a win condition
+        const potentialWinner = checkWinner(nextBoard, count + 1);
+        if (potentialWinner !== null) {
+          setBoard(nextBoard);
+          setWinner(potentialWinner);
+          setGameOver(true);
+          commitTurnState(nextBoard, turn, count + 1);
+          return;
+        }
+
         setBoard(nextBoard);
 
         // Start sequential cascade steps
@@ -390,7 +410,7 @@ export default function LocalGameScreen() {
                 data={cellData}
                 cellWidth={cellWidth}
                 cellHeight={cellHeight}
-                isMyTurn={!isCascadeActive} // Lock cell touches if cascade is rendering
+                isMyTurn={!isCascadeActive && !gameOver} // Lock cell touches if cascade is rendering or game is over
                 myPlayerNumber={currentTurn}
                 onPress={handleCellPress}
                 maxRows={rows}
