@@ -79,6 +79,8 @@ export default function AIGameScreen() {
 
   // Flag to prevent double AI triggers
   const aiScheduledRef = useRef(false);
+  const isCascadeInProgressRef = useRef(false);
+
 
   // ── Navigation guards ─────────────────────────────────────
   useEffect(() => {
@@ -128,6 +130,7 @@ export default function AIGameScreen() {
       setToastMessage(null);
       setIsAIThinking(false);
       aiScheduledRef.current = false;
+      isCascadeInProgressRef.current = false;
     },
     []
   );
@@ -180,6 +183,7 @@ export default function AIGameScreen() {
           triggerStepExplosions(nextExplosions);
         } else {
           // Cascade ended — advance turn
+          isCascadeInProgressRef.current = false;
           const { currentTurn: turn, turnCount: count } = stateRef.current;
           const nextTurnCount = count + 1;
           const nextTurn: Player = turn === 1 ? 2 : 1;
@@ -234,6 +238,7 @@ export default function AIGameScreen() {
         nextBoard[row][col].count -= critMass;
         if (nextBoard[row][col].count === 0) nextBoard[row][col].owner = null;
 
+        isCascadeInProgressRef.current = true;
         setBoard(nextBoard);
         triggerStepExplosions([{ row, col, player: turn, id: randomId() }]);
       } else {
@@ -289,6 +294,7 @@ export default function AIGameScreen() {
     if (over) return;
     if (currentTurn !== AI_PLAYER) return;
     if (exps.length > 0) return;
+    if (isCascadeInProgressRef.current) return;
     if (aiScheduledRef.current) return;
 
     aiScheduledRef.current = true;
@@ -331,7 +337,13 @@ export default function AIGameScreen() {
 
   // ── Difficulty label for UI ──────────────────────────────
   const difficultyLabel =
-    difficulty === 'easy' ? '🟢 Easy' : difficulty === 'medium' ? '🟡 Medium' : '🔴 Hard';
+    difficulty === 'easy'
+      ? '🟢 Easy'
+      : difficulty === 'medium'
+      ? '🟡 Medium'
+      : difficulty === 'hard'
+      ? '🔴 Hard'
+      : '💀 Impossible';
 
   // ── Winner name ───────────────────────────────────────────
   const winnerName =
