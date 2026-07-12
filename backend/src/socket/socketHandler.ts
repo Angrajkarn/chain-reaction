@@ -38,10 +38,11 @@ export function registerSocketHandlers(io: Server, socket: Socket): void {
   console.log(`[Socket] Connected: ${socket.id}`);
 
   // ─── Per-socket move rate limiter ─────────────────────────
-  // BUG-012: Raised to 400ms to cover full animation duration (~310ms) so a
-  // player cannot submit a second move while a cascade is still animating.
+  // 200ms prevents true spam while allowing fast legitimate play.
+  // Turn-order is enforced separately via player.playerNumber !== room.currentTurn.
   let lastMoveTime = 0;
-  const MOVE_RATE_LIMIT_MS = 400;
+  const MOVE_RATE_LIMIT_MS = 200;
+
 
   // ─────────────────────────────────────────────
   // CREATE ROOM
