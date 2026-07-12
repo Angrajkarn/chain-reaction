@@ -37,6 +37,11 @@ const QUOTES = [
   "Warning: Opponent is dangerously cute. Defensive countermeasure: Immediate hugs! 🍫✨",
   "If the game drops connection or locks up, my feelings for you will auto-reconnect instantly! 📶💍",
   "You don't need to win the board. You won my entire repository already! 🏗️🌸",
+  "If you make a move, I will hold my breath until your next turn. 💖",
+  "Chain Reaction is about capturing cells, but you've already captured 100% of my thoughts! 🌸",
+  "Evaluating board state... Result: Booblie's beauty transcends the maximum grid dimensions! 🛸✨",
+  "Zobrist hash calculated. Verdict: No key exists that is as unique as you. 🔐💝",
+  "Alpha-beta pruning active: Pruning away all logic that doesn't lead to your absolute happiness. 🌿💕",
 ];
 
 export default function AboutModal({ visible, onClose }: AboutModalProps) {
@@ -87,7 +92,7 @@ export default function AboutModal({ visible, onClose }: AboutModalProps) {
               </Text>
               <Text style={styles.promiseTitle}>🍭 The Cute Penalty</Text>
               <Text style={styles.promiseText}>
-                Booblie is permitted to steal my atoms if she looks at me of if she smiles. Tapping to conquer her cells is legally blocked by the cute filter.
+                Booblie is permitted to steal my atoms if she looks at me or if she smiles. Tapping to conquer her cells is legally blocked by the cute filter.
               </Text>
             </View>
 
@@ -105,6 +110,50 @@ export default function AboutModal({ visible, onClose }: AboutModalProps) {
               <View style={styles.statRow}>
                 <Text style={styles.statLabel}>Undo Privileges:</Text>
                 <Text style={styles.statValue}>Infinite ♾️</Text>
+              </View>
+            </View>
+
+            {/* AI Network Engine Info Card */}
+            <View style={[styles.statsCard, { borderColor: 'rgba(0,212,255,0.12)' }]}>
+              <Text style={styles.sectionHeader}>🧠 Neural Matchmaker Engine</Text>
+              <Text style={styles.engineText}>
+                This game features a custom-built, offline-first Neural Network AI. The Impossible difficulty utilizes a Multi-Layer Perceptron (MLP) policy neural network (trained over 100,000 matches) combined with minimax search and Zobrist state memoization.
+              </Text>
+              <Text style={styles.engineText}>
+                Even so, the AI logic detects when it plays the Strategy Queen. It automatically scales down weights if it registers her smile, letting Booblie win with style.
+              </Text>
+            </View>
+
+            {/* Achievements Section */}
+            <View style={styles.achievementsCard}>
+              <Text style={styles.sectionHeader}>🏆 Arena Achievements Unlocked</Text>
+              <View style={styles.achievementRow}>
+                <Text style={styles.achievementEmoji}>🥇</Text>
+                <View style={styles.achievementInfo}>
+                  <Text style={styles.achievementTitle}>Daisy Chain Champ</Text>
+                  <Text style={styles.achievementDesc}>Triggered an explosion cascade of 10+ chain reaction cells.</Text>
+                </View>
+              </View>
+              <View style={styles.achievementRow}>
+                <Text style={styles.achievementEmoji}>🥈</Text>
+                <View style={styles.achievementInfo}>
+                  <Text style={styles.achievementTitle}>Heartbeat Latency</Text>
+                  <Text style={styles.achievementDesc}>Played a multiplayer lobby with 0ms reconnect latency and infinite love.</Text>
+                </View>
+              </View>
+              <View style={styles.achievementRow}>
+                <Text style={styles.achievementEmoji}>🥉</Text>
+                <View style={styles.achievementInfo}>
+                  <Text style={styles.achievementTitle}>Unpredictable Master</Text>
+                  <Text style={styles.achievementDesc}>Subverted advanced minimax search depth paths through pure cuteness.</Text>
+                </View>
+              </View>
+              <View style={styles.achievementRow}>
+                <Text style={styles.achievementEmoji}>🏅</Text>
+                <View style={styles.achievementInfo}>
+                  <Text style={styles.achievementTitle}>Undefeated Rule 1</Text>
+                  <Text style={styles.achievementDesc}>Exercised the supreme right of winning all ties automatically.</Text>
+                </View>
               </View>
             </View>
 
@@ -238,6 +287,44 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  engineText: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '500',
+    marginTop: 4,
+  },
+  achievementsCard: {
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    gap: SPACING.sm,
+  },
+  achievementRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    paddingVertical: 4,
+  },
+  achievementEmoji: {
+    fontSize: 24,
+  },
+  achievementInfo: {
+    flex: 1,
+  },
+  achievementTitle: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  achievementDesc: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+  },
   moodBox: {
     backgroundColor: 'rgba(0,212,255,0.03)',
     borderWidth: 1,
@@ -260,3 +347,4 @@ const styles = StyleSheet.create({
     width: '100%',
   },
 });
+

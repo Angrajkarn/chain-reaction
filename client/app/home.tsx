@@ -61,15 +61,15 @@ export default function HomeScreen() {
           <Text style={styles.title}>CHAIN</Text>
           <Text style={[styles.title, styles.titleAccent]}>REACTION</Text>
           <Text style={styles.tagline}>Private Multiplayer Strategy</Text>
-        </View>
 
-        {/* Server Greeting Banner */}
-        {greeting && (
-          <Animated.View style={[styles.greetingBanner, { opacity: fadeAnim }]}>
-            <Text style={styles.greetingEmoji}>💌</Text>
-            <Text style={styles.greetingText}>{greeting}</Text>
-          </Animated.View>
-        )}
+          {/* Server Greeting Banner */}
+          {greeting && (
+            <Animated.View style={[styles.greetingBanner, { opacity: fadeAnim }]}>
+              <Text style={styles.greetingEmoji}>💌</Text>
+              <Text style={styles.greetingText}>{greeting}</Text>
+            </Animated.View>
+          )}
+        </View>
 
         {/* Menu buttons */}
         <View style={styles.menu}>
@@ -158,8 +158,9 @@ const styles = StyleSheet.create({
   branding: {
     alignItems: 'center',
     gap: SPACING.xs,
-    flex: 1.2,
+    flex: 1.5,
     justifyContent: 'center',
+    width: '100%',
   },
   brandTitle: {
     fontSize: 64,
@@ -199,6 +200,8 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     fontWeight: '500',
+    marginTop: SPACING.lg, // Separate from the last menu item
+    marginBottom: SPACING.xs,
   },
   greetingBanner: {
     flexDirection: 'row',
@@ -211,7 +214,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
     width: '100%',
-    marginBottom: SPACING.xs,
+    marginTop: SPACING.md, // Spaced from the logo tagline
   },
   greetingEmoji: {
     fontSize: 18,
