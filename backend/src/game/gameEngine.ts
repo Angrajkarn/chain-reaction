@@ -63,6 +63,37 @@ export function applyMove(
   const cols = board[0]?.length || COLS;
   const newBoard = cloneBoard(board);
 
+  // Dynamically track occupied cells of each player to detect early win & prevent infinite loops
+  let p1Cells = 0;
+  let p2Cells = 0;
+  let totalOrbs = 0;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const count = board[r][c].count;
+      totalOrbs += count;
+      if (count > 0) {
+        if (board[r][c].owner === 1) p1Cells++;
+        else if (board[r][c].owner === 2) p2Cells++;
+      }
+    }
+  }
+
+  // Adjust cell counts for placing the new orb
+  const prevCell = board[row][col];
+  if (prevCell.count === 0) {
+    if (player === 1) p1Cells++;
+    else p2Cells++;
+  } else if (prevCell.owner !== player) {
+    if (player === 1) {
+      p1Cells++;
+      p2Cells--;
+    } else {
+      p2Cells++;
+      p1Cells--;
+    }
+  }
+  totalOrbs += 1;
+
   // Add one orb to target cell
   newBoard[row][col].count += 1;
   newBoard[row][col].owner = player;
@@ -74,7 +105,8 @@ export function applyMove(
     queue.push([row, col]);
   }
 
-  const MAX_ITERATIONS = rows * cols * rows * cols; // true upper bound — each cell can explode at most rows*cols times
+  // Safety cap to prevent CPU exhaustion
+  const MAX_ITERATIONS = Math.max(100000, rows * cols * 100);
   let iterations = 0;
 
   while (queue.length > 0 && iterations < MAX_ITERATIONS) {
@@ -87,22 +119,45 @@ export function applyMove(
     // Explode: distribute orbs to neighbors
     newBoard[r][c].count -= critMass;
     if (newBoard[r][c].count === 0) {
+      const prevOwner = newBoard[r][c].owner;
+      if (prevOwner === 1) p1Cells--;
+      else if (prevOwner === 2) p2Cells--;
       newBoard[r][c].owner = null;
     }
 
     const neighbors = getAdjacentCells(r, c, rows, cols);
     for (const [nr, nc] of neighbors) {
+      const prevOwner = newBoard[nr][nc].owner;
+      const prevCount = newBoard[nr][nc].count;
+
       newBoard[nr][nc].count += 1;
       newBoard[nr][nc].owner = player; // ownership transfers
+
+      if (prevCount === 0) {
+        if (player === 1) p1Cells++;
+        else p2Cells++;
+      } else if (prevOwner !== player) {
+        if (player === 1) {
+          p1Cells++;
+          p2Cells--;
+        } else {
+          p2Cells++;
+          p1Cells--;
+        }
+      }
 
       if (newBoard[nr][nc].count >= getCriticalMass(nr, nc, rows, cols)) {
         queue.push([nr, nc]);
       }
     }
+
+    // Halt early if a player won (all opposing cells captured)
+    if (totalOrbs >= 2 && (p1Cells === 0 || p2Cells === 0)) {
+      break;
+    }
   }
 
-  // BUG-003: If cap was hit the board is in a partially-exploded state.
-  // Throw so the caller can reject this move instead of broadcasting corruption.
+  // If cap was hit, throw so the caller can reject compile/overflow
   if (iterations >= MAX_ITERATIONS && queue.length > 0) {
     console.error(`[GameEngine] applyMove: BFS cap hit (${iterations}). Possible infinite chain on board ${rows}x${cols}.`);
     throw new Error('EXPLOSION_OVERFLOW');
