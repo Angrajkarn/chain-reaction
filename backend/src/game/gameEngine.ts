@@ -57,8 +57,7 @@ export function applyMove(
   board: BoardState,
   row: number,
   col: number,
-  player: Player,
-  turnCount: number = 2
+  player: Player
 ): BoardState {
   const rows = board.length;
   const cols = board[0]?.length || COLS;
@@ -75,7 +74,7 @@ export function applyMove(
     queue.push([row, col]);
   }
 
-  const MAX_ITERATIONS = rows * cols * 4; // Safety cap
+  const MAX_ITERATIONS = rows * cols * rows * cols; // true upper bound — each cell can explode at most rows*cols times
   let iterations = 0;
 
   while (queue.length > 0 && iterations < MAX_ITERATIONS) {
@@ -100,11 +99,13 @@ export function applyMove(
         queue.push([nr, nc]);
       }
     }
+  }
 
-    // Terminate cascade immediately if a player has won mid-cascade
-    if (checkWinner(newBoard, turnCount + 1) !== null) {
-      break;
-    }
+  // BUG-003: If cap was hit the board is in a partially-exploded state.
+  // Throw so the caller can reject this move instead of broadcasting corruption.
+  if (iterations >= MAX_ITERATIONS && queue.length > 0) {
+    console.error(`[GameEngine] applyMove: BFS cap hit (${iterations}). Possible infinite chain on board ${rows}x${cols}.`);
+    throw new Error('EXPLOSION_OVERFLOW');
   }
 
   return newBoard;

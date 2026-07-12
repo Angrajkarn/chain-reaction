@@ -97,7 +97,15 @@ export default function Explosion({
 
   useEffect(() => {
     playExplosion();
-    const finishedRef = { value: false };
+    // BUG-011: Use a single deduplication ref so onComplete fires exactly once,
+    // whether animation finishes normally OR the component unmounts mid-animation.
+    const calledRef = { value: false };
+    const safeComplete = () => {
+      if (!calledRef.value) {
+        calledRef.value = true;
+        onComplete();
+      }
+    };
 
     Animated.parallel([
       Animated.timing(progress, {
@@ -120,19 +128,16 @@ export default function Explosion({
       }),
     ]).start((result) => {
       if (result.finished) {
-        finishedRef.value = true;
-        onComplete();
+        safeComplete();
       }
     });
 
-    // Safety: if component unmounts before animation completes (fast chains),
-    // force-call onComplete to prevent cascade from freezing.
     return () => {
-      if (!finishedRef.value) {
-        onComplete();
-      }
+      // Unmount before animation finishes \u2014 safeComplete guarantees single call
+      safeComplete();
     };
   }, []);
+
 
   const size = Math.min(cellWidth, cellHeight);
 

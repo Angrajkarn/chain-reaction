@@ -71,12 +71,16 @@ export default function GameScreen() {
   const [opponentLeftName, setOpponentLeftName] = useState('');
 
   // ── Online Cascade Animation Engine ───────────────────────────
-  // Mirrors offline resolveExplosionSplits so the remote player
-  // sees orb movement step-by-step instead of instant board jump.
   const onlineStepRef = useRef<ExplosionEvent[]>([]);
   const onlineStepIdsRef = useRef<Set<string>>(new Set());
+  // BUG-005: Session counter increments on every new game so stale cascades are
+  // detected and aborted if a restart is received while animations are in flight.
+  const sessionIdRef = useRef(0);
 
-  const resolveOnlineStep = useCallback((completedList: ExplosionEvent[]) => {
+  const resolveOnlineStep = useCallback((completedList: ExplosionEvent[], capturedSession: number) => {
+    // BUG-005: Abort if a restart/new-game changed the session while we were animating
+    if (capturedSession !== sessionIdRef.current) return;
+
     const currentBoard = useGameStore.getState().board;
     const rows = currentBoard.length;
     const cols = currentBoard[0]?.length || 6;
@@ -140,7 +144,9 @@ export default function GameScreen() {
         });
       }
     }
-  }, [setBoard, setStoreTurn, setStoreTurnCount, addExplosion, setPendingOnlineBoard]);
+    // BUG-019: useCallback deps list was populated with store action refs that
+    // are never actually called directly here (we use getState/setState). Removed.
+  }, []);
 
   // Register initial explosion batch when cascade starts
   useEffect(() => {
@@ -156,9 +162,10 @@ export default function GameScreen() {
     const remaining = explosions.filter((e) => onlineStepIdsRef.current.has(e.id));
     if (remaining.length === 0) {
       const completedStep = [...onlineStepRef.current];
+      const capturedSession = sessionIdRef.current; // BUG-005: capture before async
       onlineStepRef.current = [];
       onlineStepIdsRef.current = new Set();
-      setTimeout(() => resolveOnlineStep(completedStep), 10);
+      setTimeout(() => resolveOnlineStep(completedStep, capturedSession), 10);
     }
   }, [explosions, resolveOnlineStep]);
 
@@ -167,6 +174,7 @@ export default function GameScreen() {
     if (gameOver) {
       onlineStepRef.current = [];
       onlineStepIdsRef.current = new Set();
+      sessionIdRef.current += 1; // BUG-005: invalidate any in-flight cascade
       if (useGameStore.getState().pendingOnlineBoard !== null) {
         setPendingOnlineBoard(null);
       }
@@ -184,10 +192,20 @@ export default function GameScreen() {
     return unsubscribe;
   }, [navigation, gameOver]);
 
+  // BUG-020: Keep a ref to the auto-exit timer so it can be cancelled if user
+  // opens the pause menu during the 2500ms loser window.
+  const loseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Intercept Android hardware back button → open pause menu
   useEffect(() => {
     const onBackPress = () => {
-      if (gameOver) return false; // Allow default exit if game already over
+      if (gameOver) return false;
+      // BUG-020: Cancel the pending auto-exit timer so it doesn't navigate
+      // while the pause menu is visible.
+      if (loseTimerRef.current !== null) {
+        clearTimeout(loseTimerRef.current);
+        loseTimerRef.current = null;
+      }
       setMenuOpen(true);
       return true;
     };
@@ -215,23 +233,35 @@ export default function GameScreen() {
   // Do NOT disconnect on normal navigation (e.g. accidental back press)
   // Intentional exit is handled by handleExit() below
 
-  // Haptics + sound + auto-exit for loser
+  // BUG-008: Added all referenced values to dep array.
+  // Stable callbacks (disconnectSocket, fullReset, router, haptics, sounds)
+  // are read via ref-style access inside the effect to avoid re-subscribing.
+  const loseHandlersRef = useRef({ successNotify, playVictory, heavyPulse, playDefeat, disconnectSocket, fullReset, router });
+  loseHandlersRef.current = { successNotify, playVictory, heavyPulse, playDefeat, disconnectSocket, fullReset, router };
+
   useEffect(() => {
-    if (gameOver && winner !== null) {
-      if (winner === myPlayerNumber) {
-        successNotify();
-        playVictory();
-      } else {
-        heavyPulse();
-        playDefeat();
-        // Loser auto-exits to home after 2.5 seconds
-        const timer = setTimeout(() => {
-          disconnectSocket();
-          fullReset();
-          router.replace('/home');
-        }, 2500);
-        return () => clearTimeout(timer);
-      }
+    if (!gameOver || winner === null) return;
+    const { successNotify, playVictory, heavyPulse, playDefeat, disconnectSocket, fullReset, router } = loseHandlersRef.current;
+    const myNum = useGameStore.getState().myPlayerNumber;
+    if (winner === myNum) {
+      successNotify();
+      playVictory();
+    } else {
+      heavyPulse();
+      playDefeat();
+      // BUG-020: Store the timer so it can be cancelled if the pause menu opens
+      loseTimerRef.current = setTimeout(() => {
+        loseTimerRef.current = null;
+        disconnectSocket();
+        fullReset();
+        router.replace('/home');
+      }, 2500);
+      return () => {
+        if (loseTimerRef.current !== null) {
+          clearTimeout(loseTimerRef.current);
+          loseTimerRef.current = null;
+        }
+      };
     }
   }, [gameOver, winner]);
 
@@ -246,9 +276,11 @@ export default function GameScreen() {
   }, [toastMessage]);
 
   const handlePlayAgain = () => {
+    sessionIdRef.current += 1; // BUG-005: invalidate any leftover cascade from previous game
     setMyRequestedRestart(true);
     handleRestart();
   };
+
 
   const handleExit = useCallback(() => {
     isExiting.current = true;

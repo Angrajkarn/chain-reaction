@@ -92,8 +92,7 @@ export function applyMove(
   row: number,
   col: number,
   player: Player,
-  onExplode?: (r: number, c: number) => void,
-  turnCount: number = 2
+  onExplode?: (r: number, c: number) => void
 ): BoardState {
   const rows = board.length;
   const cols = board[0]?.length || BOARD_COLS;
@@ -137,11 +136,6 @@ export function applyMove(
       if (newBoard[nr][nc].count >= getCriticalMass(nr, nc, rows, cols)) {
         queue.push([nr, nc]);
       }
-    }
-
-    // Mid-cascade win verification
-    if (checkWinner(newBoard, turnCount + 1) !== null) {
-      break;
     }
   }
 

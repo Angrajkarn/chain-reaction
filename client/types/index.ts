@@ -33,12 +33,14 @@ export interface RoomCreatedPayload {
   roomCode: string;
   playerNumber: Player;
   playerName: string;
+  reconnectToken: string; // BUG-001
 }
 
 export interface RoomJoinedPayload {
   roomCode: string;
   playerNumber: Player;
   playerName: string;
+  reconnectToken: string; // BUG-001
 }
 
 export interface PlayerJoinedPayload {

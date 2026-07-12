@@ -26,6 +26,7 @@ export function useSocket(bindListeners = false) {
   const {
     setRoomCode,
     setMyPlayerNumber,
+    setMyReconnectToken, // BUG-001
     setPlayers,
     setBoard,
     setCurrentTurn,
@@ -61,16 +62,18 @@ export function useSocket(bindListeners = false) {
       setReconnecting(true);
     };
 
-    const onRoomCreated = ({ roomCode, playerNumber, playerName }: RoomCreatedPayload) => {
+    const onRoomCreated = ({ roomCode, playerNumber, playerName, reconnectToken }: RoomCreatedPayload) => {
       setRoomCode(roomCode);
       setMyPlayerNumber(playerNumber);
+      setMyReconnectToken(reconnectToken); // BUG-001
       setPlayers([{ id: socket.id || '', name: playerName, playerNumber }]);
       router.push('/waiting');
     };
 
-    const onRoomJoined = ({ roomCode, playerNumber }: RoomJoinedPayload) => {
+    const onRoomJoined = ({ roomCode, playerNumber, reconnectToken }: RoomJoinedPayload) => {
       setRoomCode(roomCode);
       setMyPlayerNumber(playerNumber);
+      setMyReconnectToken(reconnectToken); // BUG-001
     };
 
     const onPlayerJoined = ({ players, gameStarted, board, currentTurn }: PlayerJoinedPayload) => {
@@ -100,7 +103,8 @@ export function useSocket(bindListeners = false) {
           if (prevCellCount + 1 >= critMass) {
             // Cascade — apply step-0 board (orb placed + source cell decremented)
             const stepBoard = currentBoard.map((r) => r.map((c) => ({ ...c })));
-            stepBoard[row][col].count = prevCellCount + 1 - critMass;
+            // BUG-004: Clamp to 0 to prevent negative orb counts when client/server drift
+            stepBoard[row][col].count = Math.max(0, prevCellCount + 1 - critMass);
             stepBoard[row][col].owner = stepBoard[row][col].count === 0 ? null : (player as Player);
             
             // Atomic batch update to prevent blinking (no frame gap between board write and explosion mount)
@@ -121,9 +125,8 @@ export function useSocket(bindListeners = false) {
       });
     };
 
-    const onTurnChange = ({ currentTurn }: { currentTurn: Player }) => {
-      setCurrentTurn(currentTurn);
-    };
+    // BUG-006: turn-change is removed — currentTurn is already inside board-update payload.
+    // Keeping listener registration would do nothing harmful but wastes a round-trip.
 
     const onGameOver = ({ winner, winnerName }: GameOverPayload) => {
       const isCascadeActive = useGameStore.getState().pendingOnlineBoard !== null;
@@ -163,10 +166,7 @@ export function useSocket(bindListeners = false) {
       router.push('/game');
     };
 
-    const onPlayerLeft = ({ playerName }: { playerName: string }) => {
-      // Handled in game screen via store subscription
-      console.log(`[Socket] ${playerName} left the game`);
-    };
+    // BUG-015: player-left handled exclusively in game.tsx. Removed duplicate here.
 
     const onError = ({ message }: { message: string }) => {
       console.error(`[Socket Error] ${message}`);
@@ -186,11 +186,11 @@ export function useSocket(bindListeners = false) {
     socket.on('room-joined', onRoomJoined);
     socket.on('player-joined', onPlayerJoined);
     socket.on('board-update', onBoardUpdate);
-    socket.on('turn-change', onTurnChange);
+    // BUG-006: 'turn-change' listener removed — handled by board-update
     socket.on('game-over', onGameOver);
     socket.on('game-restarted', onGameRestarted);
     socket.on('reconnect-success', onReconnectSuccess);
-    socket.on('player-left', onPlayerLeft);
+    // BUG-015: 'player-left' removed — handled in game.tsx directly
     socket.on('error', onError);
     socket.on('join-error', onJoinError);
 
@@ -202,11 +202,9 @@ export function useSocket(bindListeners = false) {
       socket.off('room-joined', onRoomJoined);
       socket.off('player-joined', onPlayerJoined);
       socket.off('board-update', onBoardUpdate);
-      socket.off('turn-change', onTurnChange);
       socket.off('game-over', onGameOver);
       socket.off('game-restarted', onGameRestarted);
       socket.off('reconnect-success', onReconnectSuccess);
-      socket.off('player-left', onPlayerLeft);
       socket.off('error', onError);
       socket.off('join-error', onJoinError);
     };
@@ -252,9 +250,15 @@ export function useSocket(bindListeners = false) {
 
   const reconnectToRoom = useCallback(() => {
     const socket = getSocket();
-    if (!roomCode || !myPlayerNumber) return;
-    socket.emit('reconnect-to-room', { roomCode, playerNumber: myPlayerNumber });
-  }, [roomCode, myPlayerNumber]);
+    const state = useGameStore.getState();
+    if (!state.roomCode || !state.myPlayerNumber || !state.myReconnectToken) return;
+    // BUG-001: Send the server-issued token so the server can authenticate us
+    socket.emit('reconnect-to-room', {
+      roomCode: state.roomCode,
+      playerNumber: state.myPlayerNumber,
+      reconnectToken: state.myReconnectToken,
+    });
+  }, []);
 
   return { createRoom, joinRoom, makeMove, requestRestart, reconnectToRoom };
 }

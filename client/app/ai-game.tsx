@@ -80,6 +80,9 @@ export default function AIGameScreen() {
   // Flag to prevent double AI triggers
   const aiScheduledRef = useRef(false);
   const isCascadeInProgressRef = useRef(false);
+  // BUG-009: Keep a stable ref to applyOrbPlacement so the AI trigger effect
+  // does NOT re-run simply because rows/cols changed (which recreates the callback).
+  const applyOrbRef = useRef<typeof applyOrbPlacement | null>(null);
 
 
   // ── Navigation guards ─────────────────────────────────────
@@ -151,7 +154,9 @@ export default function AIGameScreen() {
 
   // ── Cascade resolution (identical to local-game.tsx logic) ──
   const resolveExplosionSplits = useCallback(
-    (completedList: ExplosionEvent[]) => {
+    // BUG-014: Accept capturedTurn/capturedCount as arguments so we never
+    // read stateRef inside a setBoard functional updater (mixed pattern risk).
+    (completedList: ExplosionEvent[], capturedTurn: Player, capturedCount: number) => {
       setBoard((currentBoard) => {
         let nextBoard = currentBoard.map((r) => r.map((c) => ({ ...c })));
         const nextExplosions: ExplosionEvent[] = [];
@@ -182,11 +187,10 @@ export default function AIGameScreen() {
         if (nextExplosions.length > 0) {
           triggerStepExplosions(nextExplosions);
         } else {
-          // Cascade ended — advance turn
+          // Cascade ended — advance turn using captured (stable) values
           isCascadeInProgressRef.current = false;
-          const { currentTurn: turn, turnCount: count } = stateRef.current;
-          const nextTurnCount = count + 1;
-          const nextTurn: Player = turn === 1 ? 2 : 1;
+          const nextTurnCount = capturedCount + 1;
+          const nextTurn: Player = capturedTurn === 1 ? 2 : 1;
 
           setTurnCount(nextTurnCount);
           setCurrentTurn(nextTurn);
@@ -210,7 +214,9 @@ export default function AIGameScreen() {
         const remaining = prev.filter((e) => e.id !== id);
         if (remaining.length === 0) {
           const completedStep = currentStepExplosionsRef.current;
-          setTimeout(() => resolveExplosionSplits(completedStep), 10);
+          // BUG-014: Capture turn/count snapshot now (outside the setBoard updater)
+          const { currentTurn: capTurn, turnCount: capCount } = stateRef.current;
+          setTimeout(() => resolveExplosionSplits(completedStep, capTurn, capCount), 10);
         }
         return remaining;
       });
@@ -286,6 +292,10 @@ export default function AIGameScreen() {
     [applyOrbPlacement, isAIThinking, lightTap]
   );
 
+  // BUG-009: Always keep the ref up-to-date so the AI trigger can call it
+  // without being listed as a dep (avoids spurious re-fires on row/col changes).
+  applyOrbRef.current = applyOrbPlacement;
+
   // ── AI turn trigger ───────────────────────────────────────
   // Fires whenever currentTurn becomes AI_PLAYER and cascade is idle
   useEffect(() => {
@@ -300,7 +310,6 @@ export default function AIGameScreen() {
     aiScheduledRef.current = true;
     setIsAIThinking(true);
 
-    // Capture board/turn/count at this moment (stable inside async closure)
     const boardSnap = stateRef.current.board;
     const countSnap = stateRef.current.turnCount;
 
@@ -309,19 +318,21 @@ export default function AIGameScreen() {
         aiScheduledRef.current = false;
         setIsAIThinking(false);
 
-        if (!move) return; // No moves available (shouldn't happen)
+        if (!move) return;
 
         const { board: currentBoard, turnCount: currentCount, gameOver: isOver } =
           stateRef.current;
         if (isOver) return;
 
-        applyOrbPlacement(currentBoard, move.row, move.col, AI_PLAYER, currentCount);
+        // BUG-009: Call via ref — not captured in the effect closure
+        applyOrbRef.current?.(currentBoard, move.row, move.col, AI_PLAYER, currentCount);
       })
       .catch(() => {
         aiScheduledRef.current = false;
         setIsAIThinking(false);
       });
-  }, [currentTurn, activeExplosions.length, difficulty, applyOrbPlacement]);
+  // BUG-009: applyOrbPlacement removed from deps — called via stable ref instead
+  }, [currentTurn, activeExplosions.length, difficulty]);
 
   // ── Play again / exit ─────────────────────────────────────
   const handlePlayAgain = () => {

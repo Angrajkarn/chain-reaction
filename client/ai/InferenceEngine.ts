@@ -91,14 +91,16 @@ function searchMinimax(
 ): number {
   ctx.nodesVisited++;
 
-  // Check timeout periodically
-  if (ctx.nodesVisited % 128 === 0) {
+  // BUG-017: Check timeout every 64 nodes (was 128) so we never overshoot
+  // the 300ms budget even inside a single deep recursive branch.
+  if (ctx.nodesVisited % 64 === 0) {
     if (Date.now() - ctx.startTime > ctx.timeLimit) {
       ctx.isTimedOut = true;
     }
   }
 
   if (ctx.isTimedOut) return 0;
+
 
   // Terminal winner check
   const winner = checkWinner(board, turnCount);

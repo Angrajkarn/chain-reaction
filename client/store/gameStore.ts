@@ -12,6 +12,7 @@ interface GameState {
   roomCode: string | null;
   myPlayerNumber: Player | null;
   myName: string | null;
+  myReconnectToken: string | null; // BUG-001: server-issued reconnect secret
 
   // Players
   players: PlayerInfo[];
@@ -52,6 +53,7 @@ interface GameState {
   setRoomCode: (code: string) => void;
   setMyPlayerNumber: (num: Player) => void;
   setMyName: (name: string) => void;
+  setMyReconnectToken: (token: string) => void; // BUG-001
   setPlayers: (players: PlayerInfo[]) => void;
   setBoard: (board: BoardState) => void;
   setCurrentTurn: (turn: Player) => void;
@@ -75,6 +77,7 @@ export const useGameStore = create<GameState>((set) => ({
   roomCode: null,
   myPlayerNumber: null,
   myName: null,
+  myReconnectToken: null,
   players: [],
   board: initialBoard,
   currentTurn: 1,
@@ -95,6 +98,7 @@ export const useGameStore = create<GameState>((set) => ({
   setRoomCode: (code) => set({ roomCode: code }),
   setMyPlayerNumber: (num) => set({ myPlayerNumber: num }),
   setMyName: (name) => set({ myName: name }),
+  setMyReconnectToken: (token) => set({ myReconnectToken: token }),
   setPlayers: (players) => set({ players }),
   setBoard: (board) => set({ board }),
   setCurrentTurn: (turn) => set({ currentTurn: turn }),
@@ -141,6 +145,7 @@ export const useGameStore = create<GameState>((set) => ({
       roomCode: null,
       myPlayerNumber: null,
       myName: null,
+      myReconnectToken: null,
       players: [],
       board: createEmptyBoard(),
       currentTurn: 1,

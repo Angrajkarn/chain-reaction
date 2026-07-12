@@ -85,7 +85,7 @@ function validateModel(model: MLPModel, testGamesCount = 100): number {
   return modelWins / testGamesCount;
 }
 
-export function runPipeline(gamesToGenerate = 3000, epochs = 10) {
+export function runPipeline(gamesToGenerate = 3000, epochs = 1) {
   const model = new MLPModel();
 
   // Load existing weights if they exist (allows resuming)
@@ -95,40 +95,46 @@ export function runPipeline(gamesToGenerate = 3000, epochs = 10) {
     model.loadWeights(data);
   }
 
-  let games: SelfPlayGame[] = [];
+  const BATCH_SIZE = 2500;
+  const numBatches = Math.ceil(gamesToGenerate / BATCH_SIZE);
 
-  // Load dataset if it exists, otherwise generate
-  if (fs.existsSync(DATASET_FILE)) {
-    console.log('Loading existing dataset...');
-    games = JSON.parse(fs.readFileSync(DATASET_FILE, 'utf8'));
-    console.log(`Loaded ${games.length} games.`);
-  }
+  console.log(`Starting Training Pipeline: Total Games = ${gamesToGenerate}, Batches = ${numBatches}, Epochs/Batch = ${epochs}`);
 
-  const remaining = gamesToGenerate - games.length;
-  if (remaining > 0) {
-    console.log(`Generating ${remaining} self-play games...`);
-    for (let i = 1; i <= remaining; i++) {
-      const game = simulateSelfPlayGame(6, 6, 0.25); // exploration to create diversity
+  for (let batch = 1; batch <= numBatches; batch++) {
+    const startIdx = (batch - 1) * BATCH_SIZE + 1;
+    const endIdx = Math.min(batch * BATCH_SIZE, gamesToGenerate);
+    const currentBatchSize = endIdx - startIdx + 1;
+
+    console.log(`\n--- Batch ${batch}/${numBatches} (Games ${startIdx} to ${endIdx}) ---`);
+    process.stdout.write(`Simulating ${currentBatchSize} self-play games... `);
+
+    const games: SelfPlayGame[] = [];
+    const tStart = Date.now();
+    for (let i = 0; i < currentBatchSize; i++) {
+      const game = simulateSelfPlayGame(6, 6, 0.25); // exploration key
       games.push(game);
-      if (i % 500 === 0) {
-        console.log(`Generated ${i}/${remaining} games...`);
-      }
     }
-    // Save dataset for consistency
-    fs.writeFileSync(DATASET_FILE, JSON.stringify(games, null, 2), 'utf8');
-    console.log('Dataset saved to selfplay-dataset.json');
+    const elapsedSim = ((Date.now() - tStart) / 1000).toFixed(1);
+    console.log(`done in ${elapsedSim}s.`);
+
+    // Train the model on the current batch
+    trainModelOnDataset(model, games, epochs, 0.005);
+
+    // Save weights after every batch so process is resume-safe & incremental
+    fs.writeFileSync(WEIGHTS_FILE, model.saveWeights(), 'utf8');
+    console.log(`Saved batch checkpoints to: client/ai/ai-model-weights.json`);
+
+    // Perform validation check occasionally
+    if (batch % Math.max(1, Math.floor(numBatches / 5)) === 0 || batch === numBatches) {
+      const winRate = validateModel(model, 80);
+      console.log(`[Validation Update] Model Win Rate vs Exploratory P2: ${(winRate * 100).toFixed(2)}%`);
+    }
   }
 
-  // Train the model
-  trainModelOnDataset(model, games, epochs, 0.005);
-
-  // Validate model
-  const winRate = validateModel(model);
-  console.log(`Validation Win Rate against Random/Exploratory P2: ${(winRate * 100).toFixed(2)}%`);
-
-  // Save trained weights
-  fs.writeFileSync(WEIGHTS_FILE, model.saveWeights(), 'utf8');
-  console.log('Final model weights exported to client/ai/ai-model-weights.json');
+  console.log('\n======================================================');
+  console.log(`Pipeline Complete. Trained on ${gamesToGenerate} games.`);
+  console.log('Final model weights exported to: client/ai/ai-model-weights.json');
+  console.log('======================================================');
 }
 
 // Ensure the pipeline can be executed as a command-line script

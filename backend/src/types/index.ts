@@ -15,6 +15,7 @@ export interface PlayerInfo {
   id: string;       // socket id
   name: string;
   playerNumber: Player;
+  reconnectToken: string; // server-issued secret — validated on reconnect (BUG-001)
 }
 
 export interface Room {

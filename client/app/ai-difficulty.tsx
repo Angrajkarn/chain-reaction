@@ -17,12 +17,13 @@ import { SPACING, RADIUS } from '../constants/theme';
 import { AIDifficulty, DIFFICULTY_CONFIGS } from '../ai/Difficulty';
 import ParticleBackground from '../components/ParticleBackground';
 
-const DIFFICULTIES: AIDifficulty[] = ['easy', 'medium', 'hard'];
+const DIFFICULTIES: AIDifficulty[] = ['easy', 'medium', 'hard', 'impossible'];
 
 const ACCENT: Record<AIDifficulty, string> = {
   easy: '#32D74B',
   medium: '#FFE600',
   hard: '#FF2D55',
+  impossible: '#BE00FF',
 };
 
 export default function AIDifficultyScreen() {
